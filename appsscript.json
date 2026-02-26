@@ -1,0 +1,39 @@
+{
+  "timeZone": "America/Los_Angeles",
+  "dependencies": {},
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/documents.currentonly",
+    "https://www.googleapis.com/auth/presentations.currentonly",
+    "https://www.googleapis.com/auth/script.container.ui",
+    "https://www.googleapis.com/auth/script.external_request",
+    "https://www.googleapis.com/auth/drive.file"
+  ],
+  "addOns": {
+    "common": {
+      "name": "Computerify",
+      "logoUrl": "https://www.gstatic.com/images/branding/product/2x/apps_script_48dp.png",
+      "layoutProperties": {
+        "primaryColor": "#1A73E8",
+        "secondaryColor": "#E8F0FE"
+      }
+    },
+    "docs": {
+      "homepageTrigger": {
+        "runFunction": "onDocsHomepage"
+      },
+      "onFileScopeGrantedTrigger": {
+        "runFunction": "onDocsHomepage"
+      }
+    },
+    "slides": {
+      "homepageTrigger": {
+        "runFunction": "onSlidesHomepage"
+      },
+      "onFileScopeGrantedTrigger": {
+        "runFunction": "onSlidesHomepage"
+      }
+    }
+  }
+}
