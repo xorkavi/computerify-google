@@ -41,19 +41,9 @@ function getSessionId() {
 }
 
 function resetSessionId() {
-  var props = PropertiesService.getUserProperties();
   var id = newUuid_();
-  props.setProperty('sessionId', id);
-  props.deleteProperty('sessionInit');
+  PropertiesService.getUserProperties().setProperty('sessionId', id);
   return id;
-}
-
-function isSessionNew() {
-  return PropertiesService.getUserProperties().getProperty('sessionInit') !== 'true';
-}
-
-function markSessionReady() {
-  PropertiesService.getUserProperties().setProperty('sessionInit', 'true');
 }
 
 function newUuid_() {

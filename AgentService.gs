@@ -10,39 +10,21 @@
 var OUTPUT_RULE = 'Reply with only the edited text. No preamble, no commentary.';
 
 function callAgent(text) {
-  var message;
-
-  if (isSessionNew()) {
-    // First call: send full prompt so the agent loads context
-    var prompt = getCustomPrompt() || DEFAULT_PROMPT;
-    message = OUTPUT_RULE + '\n\n' + prompt + '\n\n' + text;
-  } else {
-    // Subsequent calls: agent already has context, just send the text
-    message = OUTPUT_RULE + '\n\n' + text;
-  }
-
-  var result = callDevRevAgent_(message);
-  markSessionReady();
-  return result;
+  var prompt = getCustomPrompt() || DEFAULT_PROMPT;
+  var message = OUTPUT_RULE + '\n\n' + prompt + '\n\n' + text;
+  return callDevRevAgent_(message);
 }
 
 function callAgentBatch(texts) {
   if (texts.length === 1) return [callAgent(texts[0])];
 
+  var prompt = getCustomPrompt() || DEFAULT_PROMPT;
   var combined = texts.join('\n\n===\n\n');
-  var batchRule = OUTPUT_RULE + '\n' +
-    'The text has multiple sections separated by ===. Edit each section independently and keep the === separators.';
-  var message;
-
-  if (isSessionNew()) {
-    var prompt = getCustomPrompt() || DEFAULT_PROMPT;
-    message = batchRule + '\n\n' + prompt + '\n\n' + combined;
-  } else {
-    message = batchRule + '\n\n' + combined;
-  }
+  var message = OUTPUT_RULE + '\n' +
+    'The text has multiple sections separated by ===. Edit each section independently and keep the === separators.\n\n' +
+    prompt + '\n\n' + combined;
 
   var result = callDevRevAgent_(message);
-  markSessionReady();
 
   var parts = result.split(/\s*===\s*/);
   var cleaned = [];
