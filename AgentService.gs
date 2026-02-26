@@ -1,8 +1,7 @@
 /**
  * DevRev AI agent integration.
  *
- * callAgent(text)        — single text, single call
- * callAgentBatch(texts)  — multiple texts, single call with === separators
+ * callAgent(text) — single text, single API call
  */
 
 // ── Public API ──
@@ -13,26 +12,6 @@ function callAgent(text) {
   var prompt = getCustomPrompt() || DEFAULT_PROMPT;
   var message = OUTPUT_RULE + '\n\n' + prompt + '\n\n' + text;
   return callDevRevAgent_(message);
-}
-
-function callAgentBatch(texts) {
-  if (texts.length === 1) return [callAgent(texts[0])];
-
-  var prompt = getCustomPrompt() || DEFAULT_PROMPT;
-  var combined = texts.join('\n\n===\n\n');
-  var message = OUTPUT_RULE + '\n' +
-    'The text has multiple sections separated by ===. Edit each section independently and keep the === separators.\n\n' +
-    prompt + '\n\n' + combined;
-
-  var result = callDevRevAgent_(message);
-
-  var parts = result.split(/\s*===\s*/);
-  var cleaned = [];
-  for (var i = 0; i < parts.length; i++) {
-    var p = parts[i].trim();
-    if (p) cleaned.push(p);
-  }
-  return cleaned;
 }
 
 // ── Private: DevRev API call ──

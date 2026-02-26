@@ -376,27 +376,16 @@ function cardResetPrompt(e) {
 // ═══════════════════════════════════════════
 
 /**
- * Batch-transform multiple Slides shapes in a single agent call.
- * Sends all texts joined with === separators, splits the result back.
+ * Transform each shape individually — one API call per shape.
  */
 function computerifyShapes_(shapes) {
-  if (shapes.length === 1) {
-    var r = callAgent(shapes[0].text);
-    shapes[0].shape.getText().setText(r);
-    return 1;
+  var count = 0;
+  for (var i = 0; i < shapes.length; i++) {
+    var r = callAgent(shapes[i].text);
+    shapes[i].shape.getText().setText(r);
+    count++;
   }
-
-  var texts = [];
-  for (var i = 0; i < shapes.length; i++) texts.push(shapes[i].text);
-
-  var results = callAgentBatch(texts);
-
-  for (var j = 0; j < shapes.length; j++) {
-    if (j < results.length) {
-      shapes[j].shape.getText().setText(results[j]);
-    }
-  }
-  return shapes.length;
+  return count;
 }
 
 function getSelection_() {
