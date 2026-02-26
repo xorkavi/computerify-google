@@ -9,7 +9,7 @@
 // Icon: Deploy this script as a web app (Publish → Deploy as web app),
 // then replace this URL with your web app URL + "?icon=1"
 
-var LOGO_URL = 'https://gist.githubusercontent.com/xorkavi/08071005402b0c0a58f8694134e2436d/raw/Static.svg';
+var LOGO_URL = 'https://raw.githubusercontent.com/xorkavi/computerify-google/main/icons/icon128.png';
 
 // Serves the SVG icon when deployed as a web app.
 // Deploy once, then set LOGO_URL to your web app URL + "?icon=1"

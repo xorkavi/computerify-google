@@ -13,7 +13,7 @@
   "addOns": {
     "common": {
       "name": "Computerify",
-      "logoUrl": "https://www.gstatic.com/images/branding/product/2x/apps_script_48dp.png",
+      "logoUrl": "https://raw.githubusercontent.com/xorkavi/computerify-google/main/icons/icon128.png",
       "layoutProperties": {
         "primaryColor": "#1A73E8",
         "secondaryColor": "#E8F0FE"
