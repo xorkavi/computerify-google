@@ -82,6 +82,34 @@ function replaceDocsSelection(newText) {
   throw new Error('Could not find text to replace.');
 }
 
+/**
+ * Return all text paragraphs in the document body as an array of
+ * { element, text } objects. Skips empty paragraphs and non-text elements
+ * (images, tables, etc.) so document structure is preserved.
+ */
+function getEntireDocParagraphs() {
+  var doc = DocumentApp.getActiveDocument();
+  if (!doc) return [];
+
+  var body = doc.getBody();
+  var numChildren = body.getNumChildren();
+  var paragraphs = [];
+
+  for (var i = 0; i < numChildren; i++) {
+    var child = body.getChild(i);
+    var type = child.getType();
+    if (type === DocumentApp.ElementType.PARAGRAPH ||
+        type === DocumentApp.ElementType.LIST_ITEM) {
+      var text = child.editAsText().getText().trim();
+      if (text) {
+        paragraphs.push({ element: child, text: text });
+      }
+    }
+  }
+
+  return paragraphs;
+}
+
 // ── Private helpers ──
 
 function extractRangeText_(elements) {
