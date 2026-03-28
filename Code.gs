@@ -31,6 +31,7 @@ function onOpen(e) {
   if (ui) {
     ui.createAddonMenu()
       .addItem('Computerify selection', 'menuComputerify_')
+      .addItem('Computerify entire document', 'menuComputerifyAll_')
       .addItem('New session', 'menuNewSession_')
       .addSeparator()
       .addItem('Edit prompt', 'menuEditPrompt_')
@@ -62,6 +63,40 @@ function menuComputerify_(e) {
     } else {
       ui.alert('Computerify', 'Could not detect editor type.', ui.ButtonSet.OK);
     }
+  } catch (err) {
+    ui.alert('Computerify', 'Error: ' + err.message, ui.ButtonSet.OK);
+  }
+}
+
+function menuComputerifyAll_(e) {
+  var ui = getUi_();
+  if (!getPat()) { ui.alert('Computerify', 'No PAT token set.\nUse Extensions \u203a Computerify \u203a Set PAT token.', ui.ButtonSet.OK); return; }
+
+  var confirm = ui.alert(
+    'Computerify entire document',
+    'This will rewrite all text in the document.\nIt may take a while for large documents.\n\nContinue?',
+    ui.ButtonSet.YES_NO);
+  if (confirm !== ui.Button.YES) return;
+
+  var editor = getEditorType_();
+
+  try {
+    var count = 0;
+
+    if (editor === 'slides') {
+      var shapes = getAllSlidesShapes();
+      if (shapes.length === 0) { ui.alert('Computerify', 'No text found in this presentation.', ui.ButtonSet.OK); return; }
+      count = computerifyShapes_(shapes);
+    } else if (editor === 'docs') {
+      var paragraphs = getEntireDocParagraphs();
+      if (paragraphs.length === 0) { ui.alert('Computerify', 'No text found in this document.', ui.ButtonSet.OK); return; }
+      count = computerifyEntireDoc_(paragraphs);
+    } else {
+      ui.alert('Computerify', 'Could not detect editor type.', ui.ButtonSet.OK);
+      return;
+    }
+
+    ui.alert('Computerify', 'Done \u2014 ' + count + ' text block' + (count > 1 ? 's' : '') + ' updated.', ui.ButtonSet.OK);
   } catch (err) {
     ui.alert('Computerify', 'Error: ' + err.message, ui.ButtonSet.OK);
   }
@@ -169,6 +204,12 @@ function buildHomepageCard_() {
     .setOnClickAction(CardService.newAction().setFunctionName('cardComputerify'))
     .setDisabled(!hasPat));
 
+  action.addWidget(CardService.newTextButton()
+    .setText('Computerify entire document')
+    .setTextButtonStyle(CardService.TextButtonStyle.TEXT)
+    .setOnClickAction(CardService.newAction().setFunctionName('cardComputerifyAll'))
+    .setDisabled(!hasPat));
+
   card.addSection(action);
 
   // Settings
@@ -211,6 +252,35 @@ function cardComputerify(e) {
       var r = callAgent(sel.text);
       replaceDocsSelection(r);
       count = 1;
+    } else {
+      return cardNotify_('Could not detect editor type.');
+    }
+
+    return cardNotify_('Done \u2014 ' + count + ' text block' + (count > 1 ? 's' : '') + ' updated');
+
+  } catch (err) {
+    return cardNotify_('Error: ' + err.message);
+  }
+}
+
+// ── Card action: Computerify entire document ──
+
+function cardComputerifyAll(e) {
+  if (!getPat()) return cardNotify_('No PAT token. Open Settings first.');
+
+  var editor = getEditorType_();
+
+  try {
+    var count = 0;
+
+    if (editor === 'slides') {
+      var shapes = getAllSlidesShapes();
+      if (shapes.length === 0) return cardNotify_('No text found in this presentation.');
+      count = computerifyShapes_(shapes);
+    } else if (editor === 'docs') {
+      var paragraphs = getEntireDocParagraphs();
+      if (paragraphs.length === 0) return cardNotify_('No text found in this document.');
+      count = computerifyEntireDoc_(paragraphs);
     } else {
       return cardNotify_('Could not detect editor type.');
     }
@@ -374,6 +444,34 @@ function cardResetPrompt(e) {
 // ═══════════════════════════════════════════
 // SHARED HELPERS
 // ═══════════════════════════════════════════
+
+/**
+ * Send entire doc to the agent in a single API call.
+ * Paragraphs are joined with §PARA§ separators. If the agent preserves
+ * them, each paragraph is replaced individually (structure preserved).
+ * If separators are lost, the full response replaces the body text.
+ */
+function computerifyEntireDoc_(paragraphs) {
+  var texts = [];
+  for (var i = 0; i < paragraphs.length; i++) {
+    texts.push(paragraphs[i].text);
+  }
+
+  var result = callAgentBulk(texts);
+
+  if (result.matched) {
+    // Separator count matches — replace each paragraph in place
+    for (var i = 0; i < paragraphs.length; i++) {
+      paragraphs[i].element.editAsText().setText(result.parts[i]);
+    }
+    return paragraphs.length;
+  }
+
+  // Fallback: separators were lost — replace entire body text
+  var doc = DocumentApp.getActiveDocument();
+  doc.getBody().setText(result.parts.join('\n\n'));
+  return 1;
+}
 
 /**
  * Transform each shape individually — one API call per shape.

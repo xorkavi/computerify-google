@@ -174,6 +174,27 @@ function getSelectedSlidesShapes() {
   return result;
 }
 
+/**
+ * Return every text shape across ALL slides in the presentation.
+ * Used by "Computerify entire presentation" to process the full deck.
+ */
+function getAllSlidesShapes() {
+  var pres = SlidesApp.getActivePresentation();
+  if (!pres) return [];
+
+  var slides = pres.getSlides();
+  var result = [];
+
+  for (var s = 0; s < slides.length; s++) {
+    var pes = slides[s].getPageElements();
+    for (var i = 0; i < pes.length; i++) {
+      collectShapesWithText_(pes[i], result);
+    }
+  }
+
+  return result;
+}
+
 // ── Private helpers ──
 
 function collectShapesWithText_(pe, result) {

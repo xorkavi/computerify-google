@@ -10,6 +10,9 @@
     "https://www.googleapis.com/auth/script.external_request",
     "https://www.googleapis.com/auth/drive.file"
   ],
+  "urlFetchWhitelist": [
+    "https://api.devrev.ai/"
+  ],
   "addOns": {
     "common": {
       "name": "Computerify",
