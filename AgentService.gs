@@ -23,7 +23,10 @@ function callAgent(text) {
   var prompt = getPrompt();
   var message = OUTPUT_RULE + '\n\n' + prompt +
     '\n\n--- BEGIN TEXT TO EDIT ---\n' + text + '\n--- END TEXT TO EDIT ---';
+  Logger.log('INPUT (' + text.length + ' chars): ' + text.substring(0, 150));
   var result = callDevRevAgent_(message);
+  Logger.log('OUTPUT (' + result.length + ' chars): ' + result.substring(0, 150));
+  Logger.log('CHANGED: ' + (result !== text));
 
   // Detect safety/refusal responses — never overwrite user text with a refusal
   if (isSafetyResponse_(result)) {
@@ -83,6 +86,26 @@ function callAgentBulk(texts) {
   };
 }
 
+// ── Diagnostic ──
+
+function testAgent() {
+  var testText = 'We leverage our AI technology to help users optimize their workflow and drive synergies across the organization.';
+  Logger.log('=== AGENT DIAGNOSTIC ===');
+  Logger.log('API_URL: ' + API_URL);
+  Logger.log('AGENT_ID: ' + AGENT_ID);
+  Logger.log('PAT set: ' + (!!getPat()));
+  Logger.log('Session: ' + getSessionId());
+  Logger.log('Prompt source: ' + (getCustomPrompt() ? 'CUSTOM' : 'DEFAULT'));
+  Logger.log('Input: ' + testText);
+  try {
+    var result = callAgent(testText);
+    Logger.log('Result: ' + result);
+    Logger.log('Changed: ' + (result !== testText));
+  } catch (e) {
+    Logger.log('ERROR: ' + e.message);
+  }
+}
+
 // ── Private: DevRev API call ──
 
 function callDevRevAgent_(message) {
@@ -110,6 +133,60 @@ function callDevRevAgent_(message) {
   var parsed = parseSSEResponse(raw);
   if (!parsed) throw new Error('No message in agent response');
   return cleanAgentResponse(parsed);
+}
+
+/**
+ * Send multiple texts to the agent in parallel using fetchAll.
+ * Each text gets its own independent API call and session.
+ * Returns an array of results in the same order as the input texts.
+ */
+function callAgentParallel(texts) {
+  var pat = getPat();
+  if (!pat) throw new Error('No PAT token. Open Settings to add it.');
+
+  var prompt = getPrompt();
+  var requests = [];
+
+  for (var i = 0; i < texts.length; i++) {
+    var message = OUTPUT_RULE + '\n\n' + prompt +
+      '\n\n--- BEGIN TEXT TO EDIT ---\n' + texts[i] + '\n--- END TEXT TO EDIT ---';
+    requests.push({
+      url: API_URL,
+      method: 'post',
+      contentType: 'application/json',
+      headers: { 'Authorization': pat },
+      payload: JSON.stringify({
+        agent: AGENT_ID,
+        event: { input_message: { message: message } },
+        session_object: newUuid_()
+      }),
+      muteHttpExceptions: true
+    });
+  }
+
+  var responses = UrlFetchApp.fetchAll(requests);
+  var results = [];
+
+  for (var j = 0; j < responses.length; j++) {
+    if (responses[j].getResponseCode() !== 200) {
+      results.push(texts[j]); // keep original on error
+      continue;
+    }
+    var raw = responses[j].getContentText();
+    var parsed = parseSSEResponse(raw);
+    if (!parsed) {
+      results.push(texts[j]);
+      continue;
+    }
+    var cleaned = cleanAgentResponse(parsed);
+    if (isSafetyResponse_(cleaned)) {
+      results.push(texts[j]); // keep original on safety refusal
+    } else {
+      results.push(cleaned);
+    }
+  }
+
+  return results;
 }
 
 // ── SSE parsing ──

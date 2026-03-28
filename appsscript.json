@@ -11,7 +11,8 @@
     "https://www.googleapis.com/auth/drive.file"
   ],
   "urlFetchWhitelist": [
-    "https://api.devrev.ai/"
+    "https://api.devrev.ai/",
+    "https://api.dev.devrev-eng.ai/"
   ],
   "addOns": {
     "common": {
