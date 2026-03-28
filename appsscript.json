@@ -16,7 +16,7 @@
   ],
   "addOns": {
     "common": {
-      "name": "Computerify",
+      "name": "Copy-that",
       "logoUrl": "https://raw.githubusercontent.com/xorkavi/computerify-google/main/icons/icon128.png",
       "layoutProperties": {
         "primaryColor": "#1A73E8",
