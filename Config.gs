@@ -4,6 +4,8 @@
 
 var AGENT_ID = 'don:core:dvrv-us-1:devo/0:ai_agent/198';
 var API_URL = 'https://api.devrev.ai/internal/ai-agents.events.execute-sync';
+var GUIDELINES_DOC_ID = '1YdP8Y4qySet0Sqw8GVLRzqYYB5_7P0mUHtGlkc_OCXo';
+var GUIDELINES_CACHE_TTL = 3600; // 1 hour
 
 var DEFAULT_PROMPT =
   'Rewrite the provided text to strictly adhere to the \u201CComputer\u201D brand guidelines. ' +
@@ -80,6 +82,41 @@ function getCustomPrompt() {
 function saveCustomPrompt(prompt) {
   PropertiesService.getUserProperties().setProperty('customPrompt', prompt || '');
   resetSessionId();
+}
+
+/**
+ * Resolve the active prompt: custom prompt > Google Doc guidelines > inline fallback.
+ */
+function getPrompt() {
+  var custom = getCustomPrompt();
+  if (custom) return custom;
+
+  var fromDoc = fetchGuidelinesFromDoc_();
+  if (fromDoc) return fromDoc;
+
+  return DEFAULT_PROMPT;
+}
+
+/**
+ * Fetch brand guidelines from the shared Google Doc, with 1-hour cache.
+ * Returns null if the doc is inaccessible (not shared, deleted, etc.).
+ */
+function fetchGuidelinesFromDoc_() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('brand_guidelines');
+  if (cached) return cached;
+
+  try {
+    var doc = DocumentApp.openById(GUIDELINES_DOC_ID);
+    var text = doc.getBody().getText();
+    if (text && text.trim()) {
+      cache.put('brand_guidelines', text.trim(), GUIDELINES_CACHE_TTL);
+      return text.trim();
+    }
+  } catch (e) {
+    // Doc inaccessible — fall through to inline fallback
+  }
+  return null;
 }
 
 function getSessionId() {

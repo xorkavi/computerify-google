@@ -20,7 +20,7 @@ var SAFETY_PHRASES = [
 ];
 
 function callAgent(text) {
-  var prompt = getCustomPrompt() || DEFAULT_PROMPT;
+  var prompt = getPrompt();
   var message = OUTPUT_RULE + '\n\n' + prompt +
     '\n\n--- BEGIN TEXT TO EDIT ---\n' + text + '\n--- END TEXT TO EDIT ---';
   var result = callDevRevAgent_(message);
@@ -49,7 +49,7 @@ function callAgent(text) {
  */
 function callAgentBulk(texts) {
   var combined = texts.join('\n' + PARAGRAPH_SEPARATOR + '\n');
-  var prompt = getCustomPrompt() || DEFAULT_PROMPT;
+  var prompt = getPrompt();
   var message = OUTPUT_RULE + '\n\n' + prompt +
     '\n\nIMPORTANT: The text below contains paragraph separators written as ' + PARAGRAPH_SEPARATOR + '. ' +
     'You MUST keep every ' + PARAGRAPH_SEPARATOR + ' separator exactly where it is. ' +
