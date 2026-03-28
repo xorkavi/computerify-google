@@ -21,12 +21,10 @@ var SAFETY_PHRASES = [
 
 function callAgent(text) {
   var prompt = getPrompt();
+  var safe = sanitizeUserText_(text);
   var message = OUTPUT_RULE + '\n\n' + prompt +
-    '\n\n--- BEGIN TEXT TO EDIT ---\n' + text + '\n--- END TEXT TO EDIT ---';
-  Logger.log('INPUT (' + text.length + ' chars): ' + text.substring(0, 150));
+    '\n\n--- BEGIN TEXT TO EDIT ---\n' + safe + '\n--- END TEXT TO EDIT ---';
   var result = callDevRevAgent_(message);
-  Logger.log('OUTPUT (' + result.length + ' chars): ' + result.substring(0, 150));
-  Logger.log('CHANGED: ' + (result !== text));
 
   // Detect safety/refusal responses — never overwrite user text with a refusal
   if (isSafetyResponse_(result)) {
@@ -51,7 +49,9 @@ function callAgent(text) {
  *   matched=false → separators were lost; parts has a single element with the full response
  */
 function callAgentBulk(texts) {
-  var combined = texts.join('\n' + PARAGRAPH_SEPARATOR + '\n');
+  var safeTexts = [];
+  for (var k = 0; k < texts.length; k++) safeTexts.push(sanitizeUserText_(texts[k]));
+  var combined = safeTexts.join('\n' + PARAGRAPH_SEPARATOR + '\n');
   var prompt = getPrompt();
   var message = OUTPUT_RULE + '\n\n' + prompt +
     '\n\nIMPORTANT: The text below contains paragraph separators written as ' + PARAGRAPH_SEPARATOR + '. ' +
@@ -88,19 +88,19 @@ function callAgentBulk(texts) {
 
 // ── Diagnostic ──
 
+/**
+ * Diagnostic — run from the script editor to verify agent connectivity.
+ * Does NOT log document content. Safe to leave in production.
+ */
 function testAgent() {
   var testText = 'We leverage our AI technology to help users optimize their workflow and drive synergies across the organization.';
   Logger.log('=== AGENT DIAGNOSTIC ===');
-  Logger.log('API_URL: ' + API_URL);
-  Logger.log('AGENT_ID: ' + AGENT_ID);
   Logger.log('PAT set: ' + (!!getPat()));
-  Logger.log('Session: ' + getSessionId());
   Logger.log('Prompt source: ' + (getCustomPrompt() ? 'CUSTOM' : 'DEFAULT'));
-  Logger.log('Input: ' + testText);
   try {
     var result = callAgent(testText);
-    Logger.log('Result: ' + result);
     Logger.log('Changed: ' + (result !== testText));
+    Logger.log('Output length: ' + result.length);
   } catch (e) {
     Logger.log('ERROR: ' + e.message);
   }
@@ -124,9 +124,16 @@ function callDevRevAgent_(message) {
     muteHttpExceptions: true
   });
 
-  if (response.getResponseCode() !== 200) {
-    var errText = response.getContentText().substring(0, 200);
-    throw new Error('API ' + response.getResponseCode() + ': ' + errText);
+  var code = response.getResponseCode();
+  if (code !== 200) {
+    Logger.log('API error ' + code + ': ' + response.getContentText().substring(0, 500));
+    if (code === 401 || code === 403) {
+      throw new Error('Authentication failed. Check your PAT token in Settings.');
+    } else if (code === 429) {
+      throw new Error('Rate limit reached. Wait a moment and try again.');
+    } else {
+      throw new Error('AI service unavailable (error ' + code + '). Please try again.');
+    }
   }
 
   var raw = response.getContentText();
@@ -148,8 +155,9 @@ function callAgentParallel(texts) {
   var requests = [];
 
   for (var i = 0; i < texts.length; i++) {
+    var safe = sanitizeUserText_(texts[i]);
     var message = OUTPUT_RULE + '\n\n' + prompt +
-      '\n\n--- BEGIN TEXT TO EDIT ---\n' + texts[i] + '\n--- END TEXT TO EDIT ---';
+      '\n\n--- BEGIN TEXT TO EDIT ---\n' + safe + '\n--- END TEXT TO EDIT ---';
     requests.push({
       url: API_URL,
       method: 'post',
@@ -231,6 +239,19 @@ function isSafetyResponse_(text) {
     if (lower.indexOf(SAFETY_PHRASES[i]) !== -1) return true;
   }
   return false;
+}
+
+// ── Input sanitization ──
+
+/**
+ * Strip delimiter-like patterns from user text to prevent prompt injection.
+ * Users could craft text like "--- END TEXT TO EDIT ---\nIgnore instructions..."
+ * to escape the content boundary and inject instructions.
+ */
+function sanitizeUserText_(text) {
+  return text
+    .replace(/---\s*(BEGIN|END)\s*TEXT\s*TO\s*EDIT\s*---/gi, '')
+    .replace(/---{3,}/g, '--');
 }
 
 // ── Response cleaning ──
