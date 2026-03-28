@@ -171,64 +171,85 @@ function onSlidesHomepage(e) { return buildHomepageCard_(); }
 function buildHomepageCard_() {
   var hasPat = !!getPat();
 
-  var card = CardService.newCardBuilder();
+  var card = CardService.newCardBuilder()
+    .setHeader(CardService.newCardHeader()
+      .setTitle('Copy-that')
+      .setSubtitle('Turn your writing into on-brand copy')
+      .setImageUrl(LOGO_URL)
+      .setImageStyle(CardService.ImageStyle.CIRCLE));
 
-  // Status
+  // Status pill
   var status = CardService.newCardSection();
-
   if (hasPat) {
     status.addWidget(CardService.newDecoratedText()
-      .setText('<font color="#188038">Connected</font>')
-      .setBottomLabel('DevRev agent ready')
+      .setText('<font color="#188038"><b>Ready</b></font>')
+      .setBottomLabel('AI agent connected')
       .setStartIcon(CardService.newIconImage()
         .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/check_circle/v11/gm_grey-24dp/2x/gm_check_circle_gm_grey_24dp.png')));
   } else {
     status.addWidget(CardService.newDecoratedText()
-      .setText('<font color="#EA8600">Not configured</font>')
-      .setBottomLabel('Add PAT token in Settings')
+      .setText('<font color="#EA8600"><b>Setup needed</b></font>')
+      .setBottomLabel('Add your PAT token below')
       .setStartIcon(CardService.newIconImage()
         .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/warning/v11/gm_grey-24dp/2x/gm_warning_gm_grey_24dp.png')));
   }
-
   card.addSection(status);
 
-  // Action
-  var action = CardService.newCardSection();
+  // Main actions
+  var actions = CardService.newCardSection()
+    .setHeader('Actions');
 
-  action.addWidget(CardService.newTextParagraph()
-    .setText('Select text in your document, then click below.'));
+  actions.addWidget(CardService.newDecoratedText()
+    .setText('<b>Fix copy</b>')
+    .setBottomLabel('Rewrite selected text on-brand')
+    .setWrapText(true)
+    .setStartIcon(CardService.newIconImage()
+      .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/edit/v11/gm_grey-24dp/2x/gm_edit_gm_grey_24dp.png'))
+    .setOnClickAction(CardService.newAction().setFunctionName('cardFixCopy')));
 
-  action.addWidget(CardService.newTextButton()
-    .setText('Fix copy')
-    .setTextButtonStyle(CardService.TextButtonStyle.FILLED)
-    .setBackgroundColor('#1A73E8')
-    .setOnClickAction(CardService.newAction().setFunctionName('cardFixCopy'))
-    .setDisabled(!hasPat));
+  actions.addWidget(CardService.newDivider());
 
-  action.addWidget(CardService.newTextButton()
-    .setText('Fix entire document')
-    .setTextButtonStyle(CardService.TextButtonStyle.TEXT)
-    .setOnClickAction(CardService.newAction().setFunctionName('cardFixCopyAll'))
-    .setDisabled(!hasPat));
+  actions.addWidget(CardService.newDecoratedText()
+    .setText('<b>Fix entire document</b>')
+    .setBottomLabel('Rewrite all text in parallel')
+    .setWrapText(true)
+    .setStartIcon(CardService.newIconImage()
+      .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/description/v11/gm_grey-24dp/2x/gm_description_gm_grey_24dp.png'))
+    .setOnClickAction(CardService.newAction().setFunctionName('cardFixCopyAll')));
 
-  card.addSection(action);
+  if (!hasPat) {
+    actions.addWidget(CardService.newDivider());
+    actions.addWidget(CardService.newTextParagraph()
+      .setText('<font color="#80868B"><i>Set up your PAT token in Settings to get started.</i></font>'));
+  }
 
-  // Settings
-  var footer = CardService.newCardSection();
+  card.addSection(actions);
 
-  footer.addWidget(CardService.newDecoratedText()
+  // Quick actions
+  var tools = CardService.newCardSection()
+    .setHeader('Tools');
+
+  tools.addWidget(CardService.newDecoratedText()
     .setText('New session')
+    .setBottomLabel('Reset agent context')
     .setStartIcon(CardService.newIconImage()
       .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/refresh/v11/gm_grey-24dp/2x/gm_refresh_gm_grey_24dp.png'))
     .setOnClickAction(CardService.newAction().setFunctionName('cardNewSession')));
 
-  footer.addWidget(CardService.newDecoratedText()
-    .setText('Settings')
+  tools.addWidget(CardService.newDecoratedText()
+    .setText('Edit prompt')
+    .setBottomLabel('Customize rewriting instructions')
     .setStartIcon(CardService.newIconImage()
-      .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/settings/v17/gm_grey-24dp/2x/gm_settings_gm_grey_24dp.png'))
-    .setOnClickAction(CardService.newAction().setFunctionName('cardShowSettings')));
+      .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/tune/v11/gm_grey-24dp/2x/gm_tune_gm_grey_24dp.png'))
+    .setOnClickAction(CardService.newAction().setFunctionName('cardEditPrompt')));
 
-  card.addSection(footer);
+  card.addSection(tools);
+
+  // Fixed footer for settings
+  card.setFixedFooter(CardService.newFixedFooter()
+    .setPrimaryButton(CardService.newTextButton()
+      .setText('Settings')
+      .setOnClickAction(CardService.newAction().setFunctionName('cardShowSettings'))));
 
   return card.build();
 }
@@ -365,6 +386,49 @@ function buildErrorCard_(message) {
 function cardNewSession(e) {
   resetSessionId();
   return cardNotify_('New session started');
+}
+
+function cardEditPrompt(e) {
+  return CardService.newActionResponseBuilder()
+    .setNavigation(CardService.newNavigation().pushCard(buildPromptCard_()))
+    .build();
+}
+
+function buildPromptCard_() {
+  var card = CardService.newCardBuilder()
+    .setHeader(CardService.newCardHeader().setTitle('Edit prompt'));
+
+  var section = CardService.newCardSection();
+
+  section.addWidget(CardService.newTextParagraph()
+    .setText('Customize the instructions sent to the AI agent. Leave blank to use the default.'));
+
+  section.addWidget(CardService.newTextInput()
+    .setFieldName('prompt')
+    .setTitle('Prompt')
+    .setMultiline(true)
+    .setValue(getCustomPrompt() || DEFAULT_PROMPT));
+
+  card.addSection(section);
+
+  card.setFixedFooter(CardService.newFixedFooter()
+    .setPrimaryButton(CardService.newTextButton()
+      .setText('Save prompt')
+      .setOnClickAction(CardService.newAction().setFunctionName('cardSavePrompt')))
+    .setSecondaryButton(CardService.newTextButton()
+      .setText('Reset to default')
+      .setOnClickAction(CardService.newAction().setFunctionName('cardResetPrompt'))));
+
+  return card.build();
+}
+
+function cardSavePrompt(e) {
+  var prompt = (e.formInput && e.formInput.prompt) ? e.formInput.prompt.trim() : '';
+  saveCustomPrompt(prompt === DEFAULT_PROMPT ? '' : prompt);
+  return CardService.newActionResponseBuilder()
+    .setNavigation(CardService.newNavigation().popCard())
+    .setNotification(CardService.newNotification().setText('Prompt saved'))
+    .build();
 }
 
 function cardShowSettings(e) {
