@@ -1,5 +1,6 @@
 /**
- * Computerify — Google Workspace Add-on
+ * Copy-that — Google Workspace Add-on
+ * Turn your writing into on-brand copy – instantly
  *
  * Two entry points:
  * 1. Extensions menu → instant text replacement
@@ -30,8 +31,8 @@ function onOpen(e) {
   var ui = getUi_();
   if (ui) {
     ui.createAddonMenu()
-      .addItem('Computerify selection', 'menuComputerify_')
-      .addItem('Computerify entire document', 'menuComputerifyAll_')
+      .addItem('Fix copy', 'menuFixCopy_')
+      .addItem('Fix entire document', 'menuFixCopyAll_')
       .addItem('New session', 'menuNewSession_')
       .addSeparator()
       .addItem('Edit prompt', 'menuEditPrompt_')
@@ -44,36 +45,36 @@ function onOpen(e) {
 
 function onInstall(e) { onOpen(e); }
 
-function menuComputerify_(e) {
+function menuFixCopy_(e) {
   var ui = getUi_();
-  if (!getPat()) { ui.alert('Computerify', 'No PAT token set.\nUse Extensions \u203a Computerify \u203a Set PAT token.', ui.ButtonSet.OK); return; }
+  if (!getPat()) { ui.alert('Copy-that', 'No PAT token set.\nUse Extensions \u203a Copy-that \u203a Set PAT token.', ui.ButtonSet.OK); return; }
 
   var editor = getEditorType_();
 
   try {
     if (editor === 'slides') {
       var shapes = getSelectedSlidesShapes();
-      if (shapes.length === 0) { ui.alert('Computerify', 'No text selected.\nSelect one or more text boxes, then try again.', ui.ButtonSet.OK); return; }
-      computerifyShapes_(shapes);
+      if (shapes.length === 0) { ui.alert('Copy-that', 'No text selected.\nSelect one or more text boxes, then try again.', ui.ButtonSet.OK); return; }
+      fixCopyShapes_(shapes);
     } else if (editor === 'docs') {
       var sel = getDocsSelection();
-      if (!sel.found) { ui.alert('Computerify', 'No text selected.\nHighlight text first, then try again.', ui.ButtonSet.OK); return; }
+      if (!sel.found) { ui.alert('Copy-that', 'No text selected.\nHighlight text first, then try again.', ui.ButtonSet.OK); return; }
       var result = callAgent(sel.text);
       replaceDocsSelection(result);
     } else {
-      ui.alert('Computerify', 'Could not detect editor type.', ui.ButtonSet.OK);
+      ui.alert('Copy-that', 'Could not detect editor type.', ui.ButtonSet.OK);
     }
   } catch (err) {
-    ui.alert('Computerify', 'Error: ' + err.message, ui.ButtonSet.OK);
+    ui.alert('Copy-that', 'Error: ' + err.message, ui.ButtonSet.OK);
   }
 }
 
-function menuComputerifyAll_(e) {
+function menuFixCopyAll_(e) {
   var ui = getUi_();
-  if (!getPat()) { ui.alert('Computerify', 'No PAT token set.\nUse Extensions \u203a Computerify \u203a Set PAT token.', ui.ButtonSet.OK); return; }
+  if (!getPat()) { ui.alert('Copy-that', 'No PAT token set.\nUse Extensions \u203a Copy-that \u203a Set PAT token.', ui.ButtonSet.OK); return; }
 
   var confirm = ui.alert(
-    'Computerify entire document',
+    'Fix entire document',
     'This will rewrite all text in the document.\nIt may take a while for large documents.\n\nContinue?',
     ui.ButtonSet.YES_NO);
   if (confirm !== ui.Button.YES) return;
@@ -85,20 +86,20 @@ function menuComputerifyAll_(e) {
 
     if (editor === 'slides') {
       var shapes = getAllSlidesShapes();
-      if (shapes.length === 0) { ui.alert('Computerify', 'No text found in this presentation.', ui.ButtonSet.OK); return; }
-      count = computerifyShapes_(shapes);
+      if (shapes.length === 0) { ui.alert('Copy-that', 'No text found in this presentation.', ui.ButtonSet.OK); return; }
+      count = fixCopyShapes_(shapes);
     } else if (editor === 'docs') {
       var paragraphs = getEntireDocParagraphs();
-      if (paragraphs.length === 0) { ui.alert('Computerify', 'No text found in this document.', ui.ButtonSet.OK); return; }
-      count = computerifyEntireDoc_(paragraphs);
+      if (paragraphs.length === 0) { ui.alert('Copy-that', 'No text found in this document.', ui.ButtonSet.OK); return; }
+      count = fixCopyEntireDoc_(paragraphs);
     } else {
-      ui.alert('Computerify', 'Could not detect editor type.', ui.ButtonSet.OK);
+      ui.alert('Copy-that', 'Could not detect editor type.', ui.ButtonSet.OK);
       return;
     }
 
-    ui.alert('Computerify', 'Done \u2014 ' + count + ' text block' + (count > 1 ? 's' : '') + ' updated.', ui.ButtonSet.OK);
+    ui.alert('Copy-that', 'Done \u2014 ' + count + ' text block' + (count > 1 ? 's' : '') + ' updated.', ui.ButtonSet.OK);
   } catch (err) {
-    ui.alert('Computerify', 'Error: ' + err.message, ui.ButtonSet.OK);
+    ui.alert('Copy-that', 'Error: ' + err.message, ui.ButtonSet.OK);
   }
 }
 
@@ -133,13 +134,13 @@ function menuEditPrompt_(e) {
 
 function menuNewSession_(e) {
   resetSessionId();
-  getUi_().alert('Computerify', 'New session started.', getUi_().ButtonSet.OK);
+  getUi_().alert('Copy-that', 'New session started.', getUi_().ButtonSet.OK);
 }
 
 function menuResetPrompt_(e) {
   var ui = getUi_();
   saveCustomPrompt('');
-  ui.alert('Computerify', 'Prompt reset to default.', ui.ButtonSet.OK);
+  ui.alert('Copy-that', 'Prompt reset to default.', ui.ButtonSet.OK);
 }
 
 function menuSetPat_(e) {
@@ -153,7 +154,7 @@ function menuSetPat_(e) {
     var token = resp.getResponseText().trim();
     if (token) {
       savePat(token);
-      ui.alert('Computerify', 'PAT token saved.', ui.ButtonSet.OK);
+      ui.alert('Copy-that', 'PAT token saved.', ui.ButtonSet.OK);
     }
   }
 }
@@ -198,16 +199,16 @@ function buildHomepageCard_() {
     .setText('Select text in your document, then click below.'));
 
   action.addWidget(CardService.newTextButton()
-    .setText('Computerify selection')
+    .setText('Fix copy')
     .setTextButtonStyle(CardService.TextButtonStyle.FILLED)
     .setBackgroundColor('#1A73E8')
-    .setOnClickAction(CardService.newAction().setFunctionName('cardComputerify'))
+    .setOnClickAction(CardService.newAction().setFunctionName('cardFixCopy'))
     .setDisabled(!hasPat));
 
   action.addWidget(CardService.newTextButton()
-    .setText('Computerify entire document')
+    .setText('Fix entire document')
     .setTextButtonStyle(CardService.TextButtonStyle.TEXT)
-    .setOnClickAction(CardService.newAction().setFunctionName('cardComputerifyAll'))
+    .setOnClickAction(CardService.newAction().setFunctionName('cardFixCopyAll'))
     .setDisabled(!hasPat));
 
   card.addSection(action);
@@ -232,9 +233,9 @@ function buildHomepageCard_() {
   return card.build();
 }
 
-// ── Card action: Computerify ──
+// ── Card action: Fix copy ──
 
-function cardComputerify(e) {
+function cardFixCopy(e) {
   if (!getPat()) return cardNotify_('No PAT token. Open Settings first.');
 
   var editor = getEditorType_();
@@ -245,7 +246,7 @@ function cardComputerify(e) {
     if (editor === 'slides') {
       var shapes = getSelectedSlidesShapes();
       if (shapes.length === 0) return cardNotify_('No text selected. Select text boxes first.');
-      count = computerifyShapes_(shapes);
+      count = fixCopyShapes_(shapes);
     } else if (editor === 'docs') {
       var sel = getDocsSelection();
       if (!sel.found) return cardNotify_('No text selected. Highlight text first.');
@@ -263,9 +264,9 @@ function cardComputerify(e) {
   }
 }
 
-// ── Card action: Computerify entire document ──
+// ── Card action: Fix entire document ──
 
-function cardComputerifyAll(e) {
+function cardFixCopyAll(e) {
   if (!getPat()) return cardNotify_('No PAT token. Open Settings first.');
 
   var editor = getEditorType_();
@@ -276,11 +277,11 @@ function cardComputerifyAll(e) {
     if (editor === 'slides') {
       var shapes = getAllSlidesShapes();
       if (shapes.length === 0) return cardNotify_('No text found in this presentation.');
-      count = computerifyShapes_(shapes);
+      count = fixCopyShapes_(shapes);
     } else if (editor === 'docs') {
       var paragraphs = getEntireDocParagraphs();
       if (paragraphs.length === 0) return cardNotify_('No text found in this document.');
-      count = computerifyEntireDoc_(paragraphs);
+      count = fixCopyEntireDoc_(paragraphs);
     } else {
       return cardNotify_('Could not detect editor type.');
     }
@@ -449,7 +450,7 @@ function cardResetPrompt(e) {
  * Process entire doc in parallel — all paragraphs sent at once via fetchAll.
  * Total time is roughly one API call (~5-10s) instead of N × 5s sequentially.
  */
-function computerifyEntireDoc_(paragraphs) {
+function fixCopyEntireDoc_(paragraphs) {
   var texts = [];
   for (var i = 0; i < paragraphs.length; i++) {
     texts.push(paragraphs[i].text);
@@ -470,7 +471,7 @@ function computerifyEntireDoc_(paragraphs) {
 /**
  * Transform each shape individually — one API call per shape.
  */
-function computerifyShapes_(shapes) {
+function fixCopyShapes_(shapes) {
   var count = 0;
   for (var i = 0; i < shapes.length; i++) {
     var r = callAgent(shapes[i].text);

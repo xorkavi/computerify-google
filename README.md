@@ -1,10 +1,12 @@
-# Computerify — Google Workspace Add-on
+# Copy-that — Google Workspace Add-on
 
-Transform copy in Google Docs and Slides using Computer's brand voice guidelines, powered by a DevRev AI agent.
+Turn your writing into on-brand copy – instantly.
+
+Powered by a DevRev AI agent trained on Computer's brand voice guidelines.
 
 ## How it works
 
-Select text in your document, click **Computerify selection**, and the add-on replaces it with an on-brand version. It supports single and multi-shape selection in Slides, and highlighted text or cursor-paragraph detection in Docs.
+Select text in your document, click **Fix copy**, and the add-on replaces it with an on-brand version. It supports single and multi-shape selection in Slides, and highlighted text or cursor-paragraph detection in Docs.
 
 ## Setup for users
 
@@ -21,25 +23,25 @@ Open a Google Doc or Slides presentation, then go to **Extensions → Apps Scrip
 ### 3. Configure the token
 
 **Option A — Extensions menu:**
-- Go to **Extensions → Computerify → Set PAT token**
+- Go to **Extensions → Copy-that → Set PAT token**
 - Paste your token and click OK
 
 **Option B — Sidebar panel:**
-- Click the Computerify icon in the right sidebar panel
+- Click the Copy-that icon in the right sidebar panel
 - Click **Settings**
 - Paste your token and click **Save**
 
 ### 4. Use it
 
 1. Select text in your document (highlight text in Docs, or click text boxes in Slides)
-2. Go to **Extensions → Computerify → Computerify selection**
-3. Or click **Computerify selection** in the sidebar panel
+2. Go to **Extensions → Copy-that → Fix copy**
+3. Or click **Fix copy** in the sidebar panel
 4. The text is replaced in-place with the on-brand version
 
 ### Tips
 
 - **Multi-select in Slides:** Select multiple text boxes and they'll all be transformed in a single batch call.
-- **Edit prompt:** Go to **Extensions → Computerify → Edit prompt** to customize the editing instructions.
+- **Edit prompt:** Go to **Extensions → Copy-that → Edit prompt** to customize the editing instructions.
 - **New session:** Click **New session** in the sidebar or menu to reset the agent's session context.
 
 ## For developers
@@ -53,7 +55,7 @@ Open a Google Doc or Slides presentation, then go to **Extensions → Apps Scrip
 ├── AgentService.gs      # DevRev API calls, SSE parsing, response cleaning
 ├── DocsService.gs       # Google Docs text extraction and replacement
 ├── SlidesService.gs     # Google Slides text extraction and replacement
-├── Static.svg           # Computerify logo (SVG source)
+├── Static.svg           # Copy-that logo (SVG source)
 └── icons/               # PNG icons at 16, 32, 48, 128px
 ```
 
@@ -88,7 +90,7 @@ The response is streamed as Server-Sent Events. `parseSSEResponse()` handles bot
 **Add a new editor (e.g. Sheets):**
 1. Create a `SheetsService.gs` with `getSheetsSelection()` and `replaceSheetsSelection()`
 2. Add a case in `getEditorType_()` for `SpreadsheetApp`
-3. Add the Sheets handling to `menuComputerify_()` and `cardComputerify()`
+3. Add the Sheets handling to `menuFixCopy_()` and `cardFixCopy()`
 4. Add `sheets` homepage trigger in `appsscript.json`
 5. Add the `spreadsheets.currentonly` OAuth scope
 

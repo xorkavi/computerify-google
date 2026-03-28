@@ -129,7 +129,7 @@ function replaceSlidesSelection(newText) {
 
 /**
  * Get each selected shape individually with its text.
- * Used by menuComputerify_ to process each shape separately.
+ * Used by menuFixCopy_ to process each shape separately.
  */
 function getSelectedSlidesShapes() {
   var pres = SlidesApp.getActivePresentation();
@@ -176,7 +176,7 @@ function getSelectedSlidesShapes() {
 
 /**
  * Return every text shape across ALL slides in the presentation.
- * Used by "Computerify entire presentation" to process the full deck.
+ * Used by "Fix entire document" to process the full deck.
  */
 function getAllSlidesShapes() {
   var pres = SlidesApp.getActivePresentation();
