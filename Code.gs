@@ -444,11 +444,18 @@ function buildSettingsCard_() {
   // PAT token
   var patSection = CardService.newCardSection().setHeader('Authentication');
 
+  var currentPat = getPat();
+  if (currentPat) {
+    patSection.addWidget(CardService.newDecoratedText()
+      .setText('Token configured')
+      .setBottomLabel('Ending in \u2026' + currentPat.slice(-6))
+      .setStartIcon(CardService.newIconImage()
+        .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/lock/v11/gm_grey-24dp/2x/gm_lock_gm_grey_24dp.png')));
+  }
   patSection.addWidget(CardService.newTextInput()
     .setFieldName('pat')
-    .setTitle('DevRev PAT Token')
-    .setHint('Stored securely in your Google account')
-    .setValue(getPat()));
+    .setTitle(currentPat ? 'Replace token' : 'DevRev PAT Token')
+    .setHint('Paste a new token to ' + (currentPat ? 'replace' : 'set up')));
 
   card.addSection(patSection);
 
@@ -487,9 +494,10 @@ function cardSaveSettings(e) {
   var pat = (e.formInput && e.formInput.pat) ? e.formInput.pat.trim() : '';
   var prompt = (e.formInput && e.formInput.prompt) ? e.formInput.prompt.trim() : '';
 
-  if (!pat) return cardNotify_('PAT token is required.');
+  // Only require PAT if none is set yet
+  if (!pat && !getPat()) return cardNotify_('PAT token is required.');
 
-  savePat(pat);
+  if (pat) savePat(pat);
   saveCustomPrompt(prompt === DEFAULT_PROMPT ? '' : prompt);
 
   return CardService.newActionResponseBuilder()
@@ -578,5 +586,10 @@ function truncate_(str, len) {
 
 function escapeHtml_(str) {
   if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
