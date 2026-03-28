@@ -446,10 +446,8 @@ function cardResetPrompt(e) {
 // ═══════════════════════════════════════════
 
 /**
- * Send entire doc to the agent in a single API call.
- * Paragraphs are joined with §PARA§ separators. If the agent preserves
- * them, each paragraph is replaced individually (structure preserved).
- * If separators are lost, the full response replaces the body text.
+ * Process entire doc in parallel — all paragraphs sent at once via fetchAll.
+ * Total time is roughly one API call (~5-10s) instead of N × 5s sequentially.
  */
 function computerifyEntireDoc_(paragraphs) {
   var texts = [];
@@ -457,20 +455,16 @@ function computerifyEntireDoc_(paragraphs) {
     texts.push(paragraphs[i].text);
   }
 
-  var result = callAgentBulk(texts);
+  var results = callAgentParallel(texts);
+  var count = 0;
 
-  if (result.matched) {
-    // Separator count matches — replace each paragraph in place
-    for (var i = 0; i < paragraphs.length; i++) {
-      paragraphs[i].element.editAsText().setText(result.parts[i]);
+  for (var i = 0; i < paragraphs.length; i++) {
+    if (results[i] && results[i] !== paragraphs[i].text) {
+      paragraphs[i].element.editAsText().setText(results[i]);
+      count++;
     }
-    return paragraphs.length;
   }
-
-  // Fallback: separators were lost — replace entire body text
-  var doc = DocumentApp.getActiveDocument();
-  doc.getBody().setText(result.parts.join('\n\n'));
-  return 1;
+  return count;
 }
 
 /**
