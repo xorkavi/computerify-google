@@ -32,7 +32,6 @@ function onOpen(e) {
   if (ui) {
     ui.createAddonMenu()
       .addItem('Fix copy', 'menuFixCopy_')
-      .addItem('Fix entire document', 'menuFixCopyAll_')
       .addItem('New session', 'menuNewSession_')
       .addSeparator()
       .addItem('Edit prompt', 'menuEditPrompt_')
@@ -64,40 +63,6 @@ function menuFixCopy_(e) {
     } else {
       ui.alert('Copy-that', 'Could not detect editor type.', ui.ButtonSet.OK);
     }
-  } catch (err) {
-    ui.alert('Copy-that', 'Error: ' + err.message, ui.ButtonSet.OK);
-  }
-}
-
-function menuFixCopyAll_(e) {
-  var ui = getUi_();
-  if (!getPat()) { ui.alert('Copy-that', 'No PAT token set.\nUse Extensions \u203a Copy-that \u203a Set PAT token.', ui.ButtonSet.OK); return; }
-
-  var confirm = ui.alert(
-    'Fix entire document',
-    'This will rewrite all text in the document.\nIt may take a while for large documents.\n\nContinue?',
-    ui.ButtonSet.YES_NO);
-  if (confirm !== ui.Button.YES) return;
-
-  var editor = getEditorType_();
-
-  try {
-    var count = 0;
-
-    if (editor === 'slides') {
-      var shapes = getAllSlidesShapes();
-      if (shapes.length === 0) { ui.alert('Copy-that', 'No text found in this presentation.', ui.ButtonSet.OK); return; }
-      count = fixCopyShapes_(shapes);
-    } else if (editor === 'docs') {
-      var paragraphs = getEntireDocParagraphs();
-      if (paragraphs.length === 0) { ui.alert('Copy-that', 'No text found in this document.', ui.ButtonSet.OK); return; }
-      count = fixCopyEntireDoc_(paragraphs);
-    } else {
-      ui.alert('Copy-that', 'Could not detect editor type.', ui.ButtonSet.OK);
-      return;
-    }
-
-    ui.alert('Copy-that', 'Done \u2014 ' + count + ' text block' + (count > 1 ? 's' : '') + ' updated.', ui.ButtonSet.OK);
   } catch (err) {
     ui.alert('Copy-that', 'Error: ' + err.message, ui.ButtonSet.OK);
   }
@@ -207,16 +172,6 @@ function buildHomepageCard_() {
       .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/edit/v11/gm_grey-24dp/2x/gm_edit_gm_grey_24dp.png'))
     .setOnClickAction(CardService.newAction().setFunctionName('cardFixCopy')));
 
-  actions.addWidget(CardService.newDivider());
-
-  actions.addWidget(CardService.newDecoratedText()
-    .setText('<b>Fix entire document</b>')
-    .setBottomLabel('Rewrite all text in parallel')
-    .setWrapText(true)
-    .setStartIcon(CardService.newIconImage()
-      .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/description/v11/gm_grey-24dp/2x/gm_description_gm_grey_24dp.png'))
-    .setOnClickAction(CardService.newAction().setFunctionName('cardFixCopyAll')));
-
   if (!hasPat) {
     actions.addWidget(CardService.newDivider());
     actions.addWidget(CardService.newTextParagraph()
@@ -274,35 +229,6 @@ function cardFixCopy(e) {
       var r = callAgent(sel.text);
       replaceDocsSelection(r);
       count = 1;
-    } else {
-      return cardNotify_('Could not detect editor type.');
-    }
-
-    return cardNotify_('Done \u2014 ' + count + ' text block' + (count > 1 ? 's' : '') + ' updated');
-
-  } catch (err) {
-    return cardNotify_('Error: ' + err.message);
-  }
-}
-
-// ── Card action: Fix entire document ──
-
-function cardFixCopyAll(e) {
-  if (!getPat()) return cardNotify_('No PAT token. Open Settings first.');
-
-  var editor = getEditorType_();
-
-  try {
-    var count = 0;
-
-    if (editor === 'slides') {
-      var shapes = getAllSlidesShapes();
-      if (shapes.length === 0) return cardNotify_('No text found in this presentation.');
-      count = fixCopyShapes_(shapes);
-    } else if (editor === 'docs') {
-      var paragraphs = getEntireDocParagraphs();
-      if (paragraphs.length === 0) return cardNotify_('No text found in this document.');
-      count = fixCopyEntireDoc_(paragraphs);
     } else {
       return cardNotify_('Could not detect editor type.');
     }
@@ -517,28 +443,6 @@ function cardResetPrompt(e) {
 // ═══════════════════════════════════════════
 // SHARED HELPERS
 // ═══════════════════════════════════════════
-
-/**
- * Process entire doc in parallel — all paragraphs sent at once via fetchAll.
- * Total time is roughly one API call (~5-10s) instead of N × 5s sequentially.
- */
-function fixCopyEntireDoc_(paragraphs) {
-  var texts = [];
-  for (var i = 0; i < paragraphs.length; i++) {
-    texts.push(paragraphs[i].text);
-  }
-
-  var results = callAgentParallel(texts);
-  var count = 0;
-
-  for (var i = 0; i < paragraphs.length; i++) {
-    if (results[i] && results[i] !== paragraphs[i].text) {
-      paragraphs[i].element.editAsText().setText(results[i]);
-      count++;
-    }
-  }
-  return count;
-}
 
 /**
  * Transform each shape individually — one API call per shape.
