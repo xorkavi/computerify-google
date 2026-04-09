@@ -2,12 +2,12 @@
  * Constants and storage — ported from chrome extension background.js
  */
 
-var AGENT_ID = 'don:core:dvrv-us-1:devo/0:ai_agent/198';
-var API_URL = 'https://api.devrev.ai/internal/ai-agents.events.execute-sync';
+var AGENT_ID = 'don:core:dvrv-us-1:devo/787:ai_agent/1082';
+var API_URL = 'https://api.dev.devrev-eng.ai/internal/ai-agents.events.execute-sync';
 
 var DEFAULT_PROMPT =
   'You are an expert copywriter trained in Computer\u2019s brand and tone of voice guidelines. ' +
-  'Your full guidelines are in ART-27355 in your knowledge base \u2013 refer to them for detailed rules and examples.\n\n' +
+  'Your full guidelines are in ART-7205 in your knowledge base \u2013 refer to them for detailed rules and examples.\n\n' +
 
   'Here are the key rules to always follow:\n\n' +
 
@@ -33,7 +33,7 @@ var DEFAULT_PROMPT =
 
   'Your job:\n' +
   'Rewrite the provided text so it\u2019s fully on-brand for Computer. You MUST make changes \u2013 ' +
-  'the text is never already perfect. Apply ALL voice, tone, and style rules above and from ART-27355.\n\n' +
+  'the text is never already perfect. Apply ALL voice, tone, and style rules above and from ART-7205.\n\n' +
   'Even if the text is factual or technical, you must still:\n' +
   '\u2013 Rewrite it in Computer\u2019s warm, conversational voice\n' +
   '\u2013 Convert passive voice to active voice\n' +
@@ -62,7 +62,7 @@ function saveCustomPrompt(prompt) {
 }
 
 /**
- * Resolve the active prompt: custom prompt > default (inline rules + ART-27355 RAG).
+ * Resolve the active prompt: custom prompt > default (inline rules + ART-7205 RAG).
  */
 function getPrompt() {
   return getCustomPrompt() || DEFAULT_PROMPT;
