@@ -1,14 +1,12 @@
 /**
  * DevRev AI agent integration.
  *
- * callAgent(text)       — single text block, single API call
- * callAgentBulk(texts)  — multiple text blocks in one API call, returns array
+ * callAgent(text) — single text block, single API call
  */
 
 // ── Public API ──
 
 var OUTPUT_RULE = 'Reply with only the edited text. No preamble, no commentary.';
-var PARAGRAPH_SEPARATOR = '§PARA§';
 
 var SAFETY_PHRASES = [
   'ensure safety and consistency',
@@ -37,53 +35,6 @@ function callAgent(text) {
   }
 
   return result;
-}
-
-/**
- * Send multiple text blocks as a single API call.
- * Joins with §PARA§ separators, instructs the agent to preserve them,
- * then splits the response back into an array.
- *
- * Returns { parts: string[], matched: boolean }
- *   matched=true  → separator count matches, parts[i] corresponds to texts[i]
- *   matched=false → separators were lost; parts has a single element with the full response
- */
-function callAgentBulk(texts) {
-  var safeTexts = [];
-  for (var k = 0; k < texts.length; k++) safeTexts.push(sanitizeUserText_(texts[k]));
-  var combined = safeTexts.join('\n' + PARAGRAPH_SEPARATOR + '\n');
-  var prompt = getPrompt();
-  var message = OUTPUT_RULE + '\n\n' + prompt +
-    '\n\nIMPORTANT: The text below contains paragraph separators written as ' + PARAGRAPH_SEPARATOR + '. ' +
-    'You MUST keep every ' + PARAGRAPH_SEPARATOR + ' separator exactly where it is. ' +
-    'Do not remove, add, or change any ' + PARAGRAPH_SEPARATOR + ' marker.' +
-    '\n\n--- BEGIN TEXT TO EDIT ---\n' + combined + '\n--- END TEXT TO EDIT ---';
-
-  var result = callDevRevAgent_(message);
-
-  if (isSafetyResponse_(result)) {
-    resetSessionId();
-    result = callDevRevAgent_(message);
-    if (isSafetyResponse_(result)) {
-      throw new Error('Agent declined to process this text. Try simplifying the content or editing the prompt.');
-    }
-  }
-
-  var parts = result.split(PARAGRAPH_SEPARATOR);
-  for (var i = 0; i < parts.length; i++) {
-    parts[i] = parts[i].trim();
-  }
-
-  // Filter out empty strings from splitting artifacts
-  var cleaned = [];
-  for (var j = 0; j < parts.length; j++) {
-    if (parts[j]) cleaned.push(parts[j]);
-  }
-
-  return {
-    parts: cleaned,
-    matched: cleaned.length === texts.length
-  };
 }
 
 // ── Diagnostic ──
@@ -140,61 +91,6 @@ function callDevRevAgent_(message) {
   var parsed = parseSSEResponse(raw);
   if (!parsed) throw new Error('No message in agent response');
   return cleanAgentResponse(parsed);
-}
-
-/**
- * Send multiple texts to the agent in parallel using fetchAll.
- * Each text gets its own independent API call and session.
- * Returns an array of results in the same order as the input texts.
- */
-function callAgentParallel(texts) {
-  var pat = getPat();
-  if (!pat) throw new Error('No PAT token. Open Settings to add it.');
-
-  var prompt = getPrompt();
-  var requests = [];
-
-  for (var i = 0; i < texts.length; i++) {
-    var safe = sanitizeUserText_(texts[i]);
-    var message = OUTPUT_RULE + '\n\n' + prompt +
-      '\n\n--- BEGIN TEXT TO EDIT ---\n' + safe + '\n--- END TEXT TO EDIT ---';
-    requests.push({
-      url: API_URL,
-      method: 'post',
-      contentType: 'application/json',
-      headers: { 'Authorization': pat },
-      payload: JSON.stringify({
-        agent: AGENT_ID,
-        event: { input_message: { message: message } },
-        session_object: newUuid_()
-      }),
-      muteHttpExceptions: true
-    });
-  }
-
-  var responses = UrlFetchApp.fetchAll(requests);
-  var results = [];
-
-  for (var j = 0; j < responses.length; j++) {
-    if (responses[j].getResponseCode() !== 200) {
-      results.push(texts[j]); // keep original on error
-      continue;
-    }
-    var raw = responses[j].getContentText();
-    var parsed = parseSSEResponse(raw);
-    if (!parsed) {
-      results.push(texts[j]);
-      continue;
-    }
-    var cleaned = cleanAgentResponse(parsed);
-    if (isSafetyResponse_(cleaned)) {
-      results.push(texts[j]); // keep original on safety refusal
-    } else {
-      results.push(cleaned);
-    }
-  }
-
-  return results;
 }
 
 // ── SSE parsing ──
