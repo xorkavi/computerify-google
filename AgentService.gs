@@ -18,15 +18,15 @@ var SAFETY_PHRASES = [
 ];
 
 function callAgent(text) {
+  Logger.log('callAgent: input length=' + text.length);
   var prompt = getPrompt();
   var safe = sanitizeUserText_(text);
   var message = OUTPUT_RULE + '\n\n' + prompt +
     '\n\n--- BEGIN TEXT TO EDIT ---\n' + safe + '\n--- END TEXT TO EDIT ---';
   var result = callDevRevAgent_(message);
 
-  // Detect safety/refusal responses — never overwrite user text with a refusal
   if (isSafetyResponse_(result)) {
-    // Retry once with a fresh session in case the session was contaminated
+    Logger.log('callAgent: safety response detected, retrying with fresh session');
     resetSessionId();
     result = callDevRevAgent_(message);
     if (isSafetyResponse_(result)) {
@@ -34,6 +34,7 @@ function callAgent(text) {
     }
   }
 
+  Logger.log('callAgent: success, output length=' + result.length);
   return result;
 }
 
@@ -59,10 +60,14 @@ function testAgent() {
 
 // ── Private: DevRev API call ──
 
-function callDevRevAgent_(message) {
+function callDevRevAgent_(message, _retried) {
   var pat = getPat();
   if (!pat) throw new Error('No PAT token. Open Settings to add it.');
 
+  var sessionId = getSessionId();
+  Logger.log('callDevRevAgent_: session=' + sessionId.substring(0, 8) + '… retry=' + !!_retried);
+
+  var start = Date.now();
   var response = UrlFetchApp.fetch(API_URL, {
     method: 'post',
     contentType: 'application/json',
@@ -70,26 +75,44 @@ function callDevRevAgent_(message) {
     payload: JSON.stringify({
       agent: AGENT_ID,
       event: { input_message: { message: message } },
-      session_object: getSessionId()
+      session_object: sessionId
     }),
     muteHttpExceptions: true
   });
+  var elapsed = ((Date.now() - start) / 1000).toFixed(1);
 
   var code = response.getResponseCode();
+  Logger.log('callDevRevAgent_: status=' + code + ' time=' + elapsed + 's');
+
   if (code !== 200) {
-    Logger.log('API error ' + code + ': ' + response.getContentText().substring(0, 500));
+    var body = response.getContentText().substring(0, 500);
+    Logger.log('callDevRevAgent_: error body=' + body);
+
+    // Stale/stuck session — reset and retry once
+    if (!_retried && (
+      (code === 400 && body.indexOf('waiting_for_skill_call') !== -1) ||
+      code === 504
+    )) {
+      Logger.log('callDevRevAgent_: stale session (code=' + code + '), resetting');
+      resetSessionId();
+      return callDevRevAgent_(message, true);
+    }
+
     if (code === 401 || code === 403) {
       throw new Error('Authentication failed. Check your PAT token in Settings.');
     } else if (code === 429) {
       throw new Error('Rate limit reached. Wait a moment and try again.');
     } else {
-      throw new Error('AI service unavailable (error ' + code + '). Please try again.');
+      throw new Error('AI service error ' + code + '. Try again or start a new session.');
     }
   }
 
   var raw = response.getContentText();
   var parsed = parseSSEResponse(raw);
-  if (!parsed) throw new Error('No message in agent response');
+  if (!parsed) {
+    Logger.log('callDevRevAgent_: empty parse from response length=' + raw.length);
+    throw new Error('No message in agent response. Try starting a new session.');
+  }
   return cleanAgentResponse(parsed);
 }
 
