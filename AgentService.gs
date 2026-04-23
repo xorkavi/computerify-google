@@ -6,7 +6,7 @@
 
 // ── Public API ──
 
-var OUTPUT_RULE = 'Reply with only the edited text. No preamble, no commentary.';
+var OUTPUT_RULE = 'Reply with only the edited text. No preamble, no commentary. Keep the output roughly the same length as the input \u2013 do not add extra paragraphs or expand significantly.';
 
 var SAFETY_PHRASES = [
   'ensure safety and consistency',
