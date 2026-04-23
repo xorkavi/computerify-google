@@ -486,11 +486,72 @@ function fixCopyShapes_(shapes) {
   for (var i = 0; i < shapes.length; i++) {
     Logger.log('fixCopyShapes_: shape ' + (i + 1) + '/' + shapes.length + ' len=' + shapes[i].text.length);
     var r = callAgent(shapes[i].text);
-    shapes[i].shape.getText().setText(r);
+    replaceShapeTextPreserveStyle_(shapes[i].shape, r);
     count++;
   }
   Logger.log('fixCopyShapes_: done, count=' + count);
   return count;
+}
+
+/**
+ * Replace shape text while preserving paragraph and text styles.
+ * Maps new paragraphs to old ones by index — extra old paragraphs are cleared,
+ * extra new paragraphs inherit the style of the last original paragraph.
+ */
+function replaceShapeTextPreserveStyle_(shape, newText) {
+  var textRange = shape.getText();
+  var oldParagraphs = textRange.getParagraphs();
+  var newLines = newText.split('\n');
+
+  // Snapshot styles from each original paragraph's first character
+  var styles = [];
+  for (var i = 0; i < oldParagraphs.length; i++) {
+    var pRange = oldParagraphs[i].getRange();
+    styles.push({
+      paragraphStyle: pRange.getParagraphStyle(),
+      textStyle: pRange.getTextStyle()
+    });
+  }
+
+  // Fall back to simple setText if only one paragraph or snapshot failed
+  if (styles.length <= 1) {
+    textRange.setText(newText);
+    return;
+  }
+
+  // Clear and rewrite
+  textRange.setText(newText);
+
+  // Re-apply styles to each new paragraph
+  var newParagraphs = textRange.getParagraphs();
+  for (var j = 0; j < newParagraphs.length; j++) {
+    var styleIdx = Math.min(j, styles.length - 1);
+    var src = styles[styleIdx];
+    var dest = newParagraphs[j].getRange();
+
+    try {
+      // Preserve font size — the most visible style difference (heading vs body)
+      var fontSize = src.textStyle.getFontSize();
+      if (fontSize) dest.getTextStyle().setFontSize(fontSize);
+
+      var bold = src.textStyle.isBold();
+      if (bold !== null) dest.getTextStyle().setBold(bold);
+
+      var fontFamily = src.textStyle.getFontFamily();
+      if (fontFamily) dest.getTextStyle().setFontFamily(fontFamily);
+
+      var color = src.textStyle.getForegroundColor();
+      if (color) dest.getTextStyle().setForegroundColor(color);
+
+      var spacing = src.paragraphStyle.getSpaceAbove();
+      if (spacing !== null) dest.getParagraphStyle().setSpaceAbove(spacing);
+
+      var spacingBelow = src.paragraphStyle.getSpaceBelow();
+      if (spacingBelow !== null) dest.getParagraphStyle().setSpaceBelow(spacingBelow);
+    } catch (e) {
+      Logger.log('replaceShapeTextPreserveStyle_: style copy failed for paragraph ' + j + ': ' + e.message);
+    }
+  }
 }
 
 function getSelection_() {
