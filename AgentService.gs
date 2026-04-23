@@ -88,9 +88,12 @@ function callDevRevAgent_(message, _retried) {
     var body = response.getContentText().substring(0, 500);
     Logger.log('callDevRevAgent_: error body=' + body);
 
-    // Session stuck in waiting_for_skill_call — reset and retry once
-    if (code === 400 && !_retried && body.indexOf('waiting_for_skill_call') !== -1) {
-      Logger.log('callDevRevAgent_: stale session, resetting');
+    // Stale/stuck session — reset and retry once
+    if (!_retried && (
+      (code === 400 && body.indexOf('waiting_for_skill_call') !== -1) ||
+      code === 504
+    )) {
+      Logger.log('callDevRevAgent_: stale session (code=' + code + '), resetting');
       resetSessionId();
       return callDevRevAgent_(message, true);
     }
