@@ -128,13 +128,30 @@ function menuSetPat_(e) {
 // CARDSERVICE SIDEBAR
 // ═══════════════════════════════════════════
 
-function onDocsHomepage(e) { return buildHomepageCard_(); }
-function onSlidesHomepage(e) { return buildHomepageCard_(); }
+function onDocsHomepage(e) {
+  try {
+    return buildHomepageCard_();
+  } catch (err) {
+    Logger.log('Homepage error: ' + err.message + '\n' + err.stack);
+    return buildHomepageErrorCard_(err.message);
+  }
+}
+
+function onSlidesHomepage(e) {
+  try {
+    return buildHomepageCard_();
+  } catch (err) {
+    Logger.log('Homepage error: ' + err.message + '\n' + err.stack);
+    return buildHomepageErrorCard_(err.message);
+  }
+}
 
 // ── Card: Homepage ──
 
 function buildHomepageCard_() {
+  Logger.log('buildHomepageCard_: building');
   var hasPat = !!getPat();
+  Logger.log('buildHomepageCard_: hasPat=' + hasPat);
 
   var card = CardService.newCardBuilder()
     .setHeader(CardService.newCardHeader()
@@ -166,7 +183,7 @@ function buildHomepageCard_() {
 
   actions.addWidget(CardService.newDecoratedText()
     .setText('<b>Fix copy</b>')
-    .setBottomLabel('Rewrite selected text on-brand')
+    .setBottomLabel('Rewrite selected text on-brand (may take 10\u201320s)')
     .setWrapText(true)
     .setStartIcon(CardService.newIconImage()
       .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/edit/v11/gm_grey-24dp/2x/gm_edit_gm_grey_24dp.png'))
@@ -212,31 +229,44 @@ function buildHomepageCard_() {
 // ── Card action: Fix copy ──
 
 function cardFixCopy(e) {
-  if (!getPat()) return cardNotify_('No PAT token. Open Settings first.');
+  Logger.log('cardFixCopy: start');
+  if (!getPat()) {
+    Logger.log('cardFixCopy: no PAT token');
+    return buildErrorCard_('No PAT token configured. Open Settings to add your DevRev token.');
+  }
 
   var editor = getEditorType_();
+  Logger.log('cardFixCopy: editor=' + editor);
 
   try {
     var count = 0;
 
     if (editor === 'slides') {
       var shapes = getSelectedSlidesShapes();
-      if (shapes.length === 0) return cardNotify_('No text selected. Select text boxes first.');
+      Logger.log('cardFixCopy: shapes found=' + shapes.length);
+      if (shapes.length === 0) {
+        return buildErrorCard_('No text selected.\n\nSelect one or more text boxes in your slide, then try again.');
+      }
       count = fixCopyShapes_(shapes);
     } else if (editor === 'docs') {
       var sel = getDocsSelection();
-      if (!sel.found) return cardNotify_('No text selected. Highlight text first.');
+      Logger.log('cardFixCopy: docs selection found=' + sel.found + ' mode=' + (sel.mode || 'none'));
+      if (!sel.found) {
+        return buildErrorCard_('No text selected.\n\nHighlight text in your document, then try again. Tip: click inside a paragraph if the sidebar took focus.');
+      }
       var r = callAgent(sel.text);
       replaceDocsSelection(r);
       count = 1;
     } else {
-      return cardNotify_('Could not detect editor type.');
+      return buildErrorCard_('Could not detect editor type. Make sure you\'re in Google Docs or Slides.');
     }
 
+    Logger.log('cardFixCopy: success, count=' + count);
     return cardNotify_('Done \u2014 ' + count + ' text block' + (count > 1 ? 's' : '') + ' updated');
 
   } catch (err) {
-    return cardNotify_('Error: ' + err.message);
+    Logger.log('cardFixCopy: ERROR ' + err.message + '\n' + err.stack);
+    return buildErrorCard_(err.message);
   }
 }
 
@@ -310,7 +340,9 @@ function buildErrorCard_(message) {
 // ── Card: Settings ──
 
 function cardNewSession(e) {
+  Logger.log('cardNewSession: resetting');
   resetSessionId();
+  Logger.log('cardNewSession: done');
   return cardNotify_('New session started');
 }
 
@@ -417,15 +449,16 @@ function buildSettingsCard_() {
 }
 
 function cardSaveSettings(e) {
+  Logger.log('cardSaveSettings: saving');
   var pat = (e.formInput && e.formInput.pat) ? e.formInput.pat.trim() : '';
   var prompt = (e.formInput && e.formInput.prompt) ? e.formInput.prompt.trim() : '';
 
-  // Only require PAT if none is set yet
   if (!pat && !getPat()) return cardNotify_('PAT token is required.');
 
   if (pat) savePat(pat);
   saveCustomPrompt(prompt === DEFAULT_PROMPT ? '' : prompt);
 
+  Logger.log('cardSaveSettings: done, pat=' + (pat ? 'updated' : 'unchanged'));
   return CardService.newActionResponseBuilder()
     .setNavigation(CardService.newNavigation().popToRoot().updateCard(buildHomepageCard_()))
     .setNotification(CardService.newNotification().setText('Settings saved'))
@@ -448,12 +481,15 @@ function cardResetPrompt(e) {
  * Transform each shape individually — one API call per shape.
  */
 function fixCopyShapes_(shapes) {
+  Logger.log('fixCopyShapes_: processing ' + shapes.length + ' shape(s)');
   var count = 0;
   for (var i = 0; i < shapes.length; i++) {
+    Logger.log('fixCopyShapes_: shape ' + (i + 1) + '/' + shapes.length + ' len=' + shapes[i].text.length);
     var r = callAgent(shapes[i].text);
     shapes[i].shape.getText().setText(r);
     count++;
   }
+  Logger.log('fixCopyShapes_: done, count=' + count);
   return count;
 }
 
@@ -474,6 +510,25 @@ function getUi_() {
   try { return DocumentApp.getUi(); } catch (e) {}
   try { return SlidesApp.getUi(); } catch (e) {}
   return null;
+}
+
+function buildHomepageErrorCard_(message) {
+  var card = CardService.newCardBuilder()
+    .setHeader(CardService.newCardHeader()
+      .setTitle('Copy-that')
+      .setSubtitle('Something went wrong'));
+
+  var section = CardService.newCardSection();
+  section.addWidget(CardService.newDecoratedText()
+    .setText('<font color="#D93025"><b>Failed to load add-on</b></font>')
+    .setWrapText(true));
+  section.addWidget(CardService.newTextParagraph()
+    .setText(escapeHtml_(message || 'Unknown error')));
+  section.addWidget(CardService.newTextParagraph()
+    .setText('<font color="#80868B">Try closing and reopening the sidebar. If the issue persists, reinstall the add-on.</font>'));
+  card.addSection(section);
+
+  return card.build();
 }
 
 function cardNotify_(text) {
