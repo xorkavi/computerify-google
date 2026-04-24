@@ -11,6 +11,7 @@
     "https://www.googleapis.com/auth/drive.file"
   ],
   "urlFetchWhitelist": [
+    "https://api.openai.com/",
     "https://api.dev.devrev-eng.ai/"
   ],
   "addOns": {

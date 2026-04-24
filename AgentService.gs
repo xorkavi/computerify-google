@@ -19,8 +19,16 @@ var SAFETY_PHRASES = [
 
 function callAgent(text) {
   Logger.log('callAgent: input length=' + text.length);
-  var prompt = getPrompt();
   var safe = sanitizeUserText_(text);
+
+  // Route to OpenAI by default; fall back to DevRev if PAT is set and OpenAI is not configured
+  if (getOpenAIKey_()) {
+    Logger.log('callAgent: using OpenAI');
+    return callOpenAI(safe);
+  }
+
+  Logger.log('callAgent: using DevRev agent');
+  var prompt = getPrompt();
   var message = OUTPUT_RULE + '\n\n' + prompt +
     '\n\n--- BEGIN TEXT TO EDIT ---\n' + safe + '\n--- END TEXT TO EDIT ---';
   var result = callDevRevAgent_(message);

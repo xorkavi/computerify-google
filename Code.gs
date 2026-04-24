@@ -32,12 +32,6 @@ function onOpen(e) {
   if (ui) {
     ui.createAddonMenu()
       .addItem('Fix copy', 'menuFixCopy_')
-      .addItem('New session', 'menuNewSession_')
-      .addSeparator()
-      .addItem('Edit prompt', 'menuEditPrompt_')
-      .addItem('Reset prompt to default', 'menuResetPrompt_')
-      .addSeparator()
-      .addItem('Set PAT token', 'menuSetPat_')
       .addToUi();
   }
 }
@@ -46,7 +40,7 @@ function onInstall(e) { onOpen(e); }
 
 function menuFixCopy_(e) {
   var ui = getUi_();
-  if (!getPat()) { ui.alert('Copy-that', 'No PAT token set.\nUse Extensions \u203a Copy-that \u203a Set PAT token.', ui.ButtonSet.OK); return; }
+  if (!getOpenAIKey_() && !getPat()) { ui.alert('Copy-that', 'Add-on not configured.\nContact your admin to set up this add-on.', ui.ButtonSet.OK); return; }
 
   var editor = getEditorType_();
 
@@ -150,8 +144,10 @@ function onSlidesHomepage(e) {
 
 function buildHomepageCard_() {
   Logger.log('buildHomepageCard_: building');
+  var hasOpenAI = !!getOpenAIKey_();
   var hasPat = !!getPat();
-  Logger.log('buildHomepageCard_: hasPat=' + hasPat);
+  var isReady = hasOpenAI || hasPat;
+  Logger.log('buildHomepageCard_: openai=' + hasOpenAI + ' devrev=' + hasPat);
 
   var card = CardService.newCardBuilder()
     .setHeader(CardService.newCardHeader()
@@ -162,66 +158,34 @@ function buildHomepageCard_() {
 
   // Status pill
   var status = CardService.newCardSection();
-  if (hasPat) {
+  if (isReady) {
     status.addWidget(CardService.newDecoratedText()
       .setText('<font color="#188038"><b>Ready</b></font>')
-      .setBottomLabel('AI agent connected')
+      .setBottomLabel(hasOpenAI ? 'Powered by AI' : 'AI agent connected')
       .setStartIcon(CardService.newIconImage()
         .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/check_circle/v11/gm_grey-24dp/2x/gm_check_circle_gm_grey_24dp.png')));
   } else {
     status.addWidget(CardService.newDecoratedText()
-      .setText('<font color="#EA8600"><b>Setup needed</b></font>')
-      .setBottomLabel('Add your PAT token below')
+      .setText('<font color="#D93025"><b>Not configured</b></font>')
+      .setBottomLabel('Contact your admin to set up this add-on')
       .setStartIcon(CardService.newIconImage()
-        .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/warning/v11/gm_grey-24dp/2x/gm_warning_gm_grey_24dp.png')));
+        .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/error/v11/gm_grey-24dp/2x/gm_error_gm_grey_24dp.png')));
   }
   card.addSection(status);
 
-  // Main actions
+  // Main action
   var actions = CardService.newCardSection()
     .setHeader('Actions');
 
   actions.addWidget(CardService.newDecoratedText()
     .setText('<b>Fix copy</b>')
-    .setBottomLabel('Rewrite selected text on-brand (may take 10\u201320s)')
+    .setBottomLabel('Rewrite selected text on-brand')
     .setWrapText(true)
     .setStartIcon(CardService.newIconImage()
       .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/edit/v11/gm_grey-24dp/2x/gm_edit_gm_grey_24dp.png'))
     .setOnClickAction(CardService.newAction().setFunctionName('cardFixCopy')));
 
-  if (!hasPat) {
-    actions.addWidget(CardService.newDivider());
-    actions.addWidget(CardService.newTextParagraph()
-      .setText('<font color="#80868B"><i>Set up your PAT token in Settings to get started.</i></font>'));
-  }
-
   card.addSection(actions);
-
-  // Quick actions
-  var tools = CardService.newCardSection()
-    .setHeader('Tools');
-
-  tools.addWidget(CardService.newDecoratedText()
-    .setText('New session')
-    .setBottomLabel('Reset agent context')
-    .setStartIcon(CardService.newIconImage()
-      .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/refresh/v11/gm_grey-24dp/2x/gm_refresh_gm_grey_24dp.png'))
-    .setOnClickAction(CardService.newAction().setFunctionName('cardNewSession')));
-
-  tools.addWidget(CardService.newDecoratedText()
-    .setText('Edit prompt')
-    .setBottomLabel('Customize rewriting instructions')
-    .setStartIcon(CardService.newIconImage()
-      .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/tune/v11/gm_grey-24dp/2x/gm_tune_gm_grey_24dp.png'))
-    .setOnClickAction(CardService.newAction().setFunctionName('cardEditPrompt')));
-
-  card.addSection(tools);
-
-  // Fixed footer for settings
-  card.setFixedFooter(CardService.newFixedFooter()
-    .setPrimaryButton(CardService.newTextButton()
-      .setText('Settings')
-      .setOnClickAction(CardService.newAction().setFunctionName('cardShowSettings'))));
 
   return card.build();
 }
@@ -230,9 +194,9 @@ function buildHomepageCard_() {
 
 function cardFixCopy(e) {
   Logger.log('cardFixCopy: start');
-  if (!getPat()) {
-    Logger.log('cardFixCopy: no PAT token');
-    return buildErrorCard_('No PAT token configured. Open Settings to add your DevRev token.');
+  if (!getOpenAIKey_() && !getPat()) {
+    Logger.log('cardFixCopy: no backend configured');
+    return buildErrorCard_('Add-on not configured. Contact your admin.');
   }
 
   var editor = getEditorType_();
