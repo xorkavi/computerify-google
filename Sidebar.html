@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Google Sans', Roboto, sans-serif;
+    font-size: 13px;
+    color: #202124;
+    background: #fff;
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  .header {
+    padding: 20px 16px 16px;
+    border-bottom: 1px solid #e8eaed;
+  }
+  .header h1 {
+    font-size: 18px;
+    font-weight: 500;
+    color: #202124;
+  }
+  .header p {
+    font-size: 12px;
+    color: #5f6368;
+    margin-top: 2px;
+  }
+
+  /* Sections */
+  .section {
+    padding: 16px;
+    border-bottom: 1px solid #f1f3f4;
+  }
+  .section-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #5f6368;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+  }
+
+  /* Tone selector */
+  .tone-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .tone-chip {
+    padding: 6px 12px;
+    border-radius: 16px;
+    border: 1px solid #dadce0;
+    background: #fff;
+    font-size: 12px;
+    color: #5f6368;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tone-chip:hover { border-color: #1A73E8; color: #1A73E8; }
+  .tone-chip.active {
+    background: #E8F0FE;
+    border-color: #1A73E8;
+    color: #1A73E8;
+    font-weight: 500;
+  }
+
+  /* Custom instruction */
+  .instruction-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #dadce0;
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: inherit;
+    resize: none;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .instruction-input:focus { border-color: #1A73E8; }
+  .instruction-input::placeholder { color: #9aa0a6; }
+
+  /* Buttons */
+  .btn {
+    width: 100%;
+    padding: 10px 16px;
+    border-radius: 20px;
+    border: none;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-primary {
+    background: #1A73E8;
+    color: #fff;
+  }
+  .btn-primary:hover { background: #1765CC; }
+  .btn-primary:disabled {
+    background: #dadce0;
+    color: #9aa0a6;
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: #fff;
+    color: #1A73E8;
+    border: 1px solid #dadce0;
+  }
+  .btn-secondary:hover { background: #f8f9fa; border-color: #1A73E8; }
+  .btn-danger {
+    background: #fff;
+    color: #D93025;
+    border: 1px solid #dadce0;
+  }
+  .btn-danger:hover { background: #fce8e6; border-color: #D93025; }
+
+  .actions { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+
+  /* Spinner */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Preview panel */
+  .preview { padding: 16px; display: none; }
+  .preview.visible { display: block; }
+  .preview-block {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+  .preview-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .preview-label.before { color: #9aa0a6; }
+  .preview-label.after { color: #188038; }
+  .preview-text {
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .preview-text.before { color: #80868b; }
+  .preview-text.after { color: #202124; }
+  .preview-actions {
+    display: flex; gap: 8px; margin-top: 12px;
+  }
+  .preview-actions .btn { flex: 1; }
+
+  /* Progress bar */
+  .progress-wrap { padding: 0 16px; display: none; }
+  .progress-wrap.visible { display: block; }
+  .progress-bar-bg {
+    height: 4px;
+    background: #e8eaed;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: #1A73E8;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+  .progress-label {
+    font-size: 11px;
+    color: #5f6368;
+    margin-top: 6px;
+    margin-bottom: 12px;
+  }
+
+  /* Status messages */
+  .status {
+    padding: 12px 16px;
+    font-size: 12px;
+    display: none;
+  }
+  .status.visible { display: block; }
+  .status.success { background: #e6f4ea; color: #137333; }
+  .status.error { background: #fce8e6; color: #c5221f; }
+
+  /* Footer */
+  .footer {
+    padding: 12px 16px;
+    border-top: 1px solid #e8eaed;
+    text-align: center;
+    font-size: 11px;
+    color: #9aa0a6;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Copy-that</h1>
+  <p>Turn your writing into on-brand copy</p>
+</div>
+
+<!-- Tone selector -->
+<div class="section">
+  <div class="section-label">Context</div>
+  <div class="tone-chips" id="toneChips">
+    <span class="tone-chip active" data-tone="auto">Auto-detect</span>
+    <span class="tone-chip" data-tone="email">Customer email</span>
+    <span class="tone-chip" data-tone="sales">Sales deck</span>
+    <span class="tone-chip" data-tone="slides">Slide bullets</span>
+    <span class="tone-chip" data-tone="internal">Internal comms</span>
+    <span class="tone-chip" data-tone="social">Social post</span>
+  </div>
+</div>
+
+<!-- Custom instruction -->
+<div class="section">
+  <div class="section-label">Extra instructions (optional)</div>
+  <textarea class="instruction-input" id="instruction" rows="2"
+    placeholder="e.g. Make it shorter, More urgent, For C-level audience"></textarea>
+</div>
+
+<!-- Action buttons -->
+<div class="actions" id="mainActions">
+  <button class="btn btn-primary" id="btnFixSelection" onclick="fixSelection()">
+    Fix selected text
+  </button>
+  <button class="btn btn-secondary" id="btnFixAll" onclick="fixAll()">
+    Fix entire document
+  </button>
+</div>
+
+<!-- Progress bar for fix-all -->
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
+  <div class="progress-label" id="progressLabel">Processing...</div>
+</div>
+
+<!-- Status message -->
+<div class="status" id="statusMsg"></div>
+
+<!-- Before/after preview -->
+<div class="preview" id="previewPanel">
+  <div class="preview-block">
+    <div class="preview-label before">Before</div>
+    <div class="preview-text before" id="previewBefore"></div>
+  </div>
+  <div class="preview-block">
+    <div class="preview-label after">After</div>
+    <div class="preview-text after" id="previewAfter"></div>
+  </div>
+  <div class="preview-actions">
+    <button class="btn btn-primary" onclick="acceptPreview()">Accept</button>
+    <button class="btn btn-danger" onclick="rejectPreview()">Reject</button>
+  </div>
+</div>
+
+<div class="footer">Powered by Computer, by DevRev</div>
+
+<script>
+var selectedTone = 'auto';
+var pendingResult = null;
+var pendingOriginal = null;
+
+// ── Tone chips ──
+document.getElementById('toneChips').addEventListener('click', function(e) {
+  if (!e.target.classList.contains('tone-chip')) return;
+  document.querySelectorAll('.tone-chip').forEach(function(c) { c.classList.remove('active'); });
+  e.target.classList.add('active');
+  selectedTone = e.target.getAttribute('data-tone');
+});
+
+// ── Fix selected text ──
+function fixSelection() {
+  var instruction = document.getElementById('instruction').value.trim();
+  setLoading(true);
+  hideStatus();
+  hidePreview();
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      setLoading(false);
+      if (!result || !result.found) {
+        showStatus('No text selected. Highlight text first, then try again.', 'error');
+        return;
+      }
+      pendingOriginal = result.original;
+      pendingResult = result.rewritten;
+      showPreview(result.original, result.rewritten);
+    })
+    .withFailureHandler(function(err) {
+      setLoading(false);
+      showStatus('Error: ' + err.message, 'error');
+    })
+    .serverFixSelection(selectedTone, instruction);
+}
+
+// ── Fix entire document ──
+function fixAll() {
+  var instruction = document.getElementById('instruction').value.trim();
+  setLoading(true, true);
+  hideStatus();
+  hidePreview();
+  showProgress(0, 'Getting text blocks...');
+
+  google.script.run
+    .withSuccessHandler(function(total) {
+      if (!total || total === 0) {
+        setLoading(false);
+        hideProgress();
+        showStatus('No text found in the document.', 'error');
+        return;
+      }
+      processNextBlock(0, total, instruction);
+    })
+    .withFailureHandler(function(err) {
+      setLoading(false);
+      hideProgress();
+      showStatus('Error: ' + err.message, 'error');
+    })
+    .serverGetBlockCount();
+}
+
+function processNextBlock(index, total, instruction) {
+  var pct = Math.round(((index + 1) / total) * 100);
+  showProgress(pct, 'Fixing block ' + (index + 1) + ' of ' + total + '...');
+
+  google.script.run
+    .withSuccessHandler(function() {
+      if (index + 1 < total) {
+        processNextBlock(index + 1, total, instruction);
+      } else {
+        setLoading(false);
+        hideProgress();
+        showStatus('Done \u2013 ' + total + ' text block' + (total > 1 ? 's' : '') + ' updated.', 'success');
+      }
+    })
+    .withFailureHandler(function(err) {
+      setLoading(false);
+      hideProgress();
+      showStatus('Error on block ' + (index + 1) + ': ' + err.message, 'error');
+    })
+    .serverFixBlock(index, selectedTone, instruction);
+}
+
+// ── Preview accept/reject ──
+function acceptPreview() {
+  hidePreview();
+  showStatus('Applying changes...', 'success');
+
+  google.script.run
+    .withSuccessHandler(function() {
+      showStatus('Text updated.', 'success');
+    })
+    .withFailureHandler(function(err) {
+      showStatus('Error applying: ' + err.message, 'error');
+    })
+    .serverApplyRewrite(pendingResult);
+}
+
+function rejectPreview() {
+  hidePreview();
+  pendingResult = null;
+  pendingOriginal = null;
+  showStatus('Change rejected. Original text kept.', 'error');
+}
+
+// ── UI helpers ──
+function setLoading(on, isFixAll) {
+  var btn = document.getElementById('btnFixSelection');
+  var btnAll = document.getElementById('btnFixAll');
+  if (on) {
+    btn.disabled = true;
+    btnAll.disabled = true;
+    btn.innerHTML = isFixAll ? 'Fix selected text' : '<span class="spinner"></span> Fixing...';
+    btnAll.innerHTML = isFixAll ? '<span class="spinner"></span> Fixing all...' : 'Fix entire document';
+  } else {
+    btn.disabled = false;
+    btnAll.disabled = false;
+    btn.innerHTML = 'Fix selected text';
+    btnAll.innerHTML = 'Fix entire document';
+  }
+}
+
+function showStatus(msg, type) {
+  var el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = 'status visible ' + type;
+}
+function hideStatus() {
+  document.getElementById('statusMsg').className = 'status';
+}
+
+function showPreview(before, after) {
+  document.getElementById('previewBefore').textContent = before;
+  document.getElementById('previewAfter').textContent = after;
+  document.getElementById('previewPanel').classList.add('visible');
+}
+function hidePreview() {
+  document.getElementById('previewPanel').classList.remove('visible');
+}
+
+function showProgress(pct, label) {
+  document.getElementById('progressWrap').classList.add('visible');
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = label;
+}
+function hideProgress() {
+  document.getElementById('progressWrap').classList.remove('visible');
+}
+</script>
+
+</body>
+</html>
