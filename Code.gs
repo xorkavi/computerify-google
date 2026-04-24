@@ -32,12 +32,6 @@ function onOpen(e) {
   if (ui) {
     ui.createAddonMenu()
       .addItem('Fix copy', 'menuFixCopy_')
-      .addItem('New session', 'menuNewSession_')
-      .addSeparator()
-      .addItem('Edit prompt', 'menuEditPrompt_')
-      .addItem('Reset prompt to default', 'menuResetPrompt_')
-      .addSeparator()
-      .addItem('Set PAT token', 'menuSetPat_')
       .addToUi();
   }
 }
@@ -46,7 +40,7 @@ function onInstall(e) { onOpen(e); }
 
 function menuFixCopy_(e) {
   var ui = getUi_();
-  if (!getPat()) { ui.alert('Copy-that', 'No PAT token set.\nUse Extensions \u203a Copy-that \u203a Set PAT token.', ui.ButtonSet.OK); return; }
+  if (!getOpenAIKey_() && !getPat()) { ui.alert('Copy-that', 'Add-on not configured.\nContact your admin to set up this add-on.', ui.ButtonSet.OK); return; }
 
   var editor = getEditorType_();
 
@@ -65,62 +59,6 @@ function menuFixCopy_(e) {
     }
   } catch (err) {
     ui.alert('Copy-that', 'Error: ' + err.message, ui.ButtonSet.OK);
-  }
-}
-
-function menuEditPrompt_(e) {
-  var current = getCustomPrompt() || DEFAULT_PROMPT;
-  var html = HtmlService.createHtmlOutput(
-    '<style>' +
-      '* { box-sizing: border-box; margin: 0; font-family: "Google Sans", Roboto, sans-serif; }' +
-      'body { padding: 16px; }' +
-      'textarea { width: 100%; height: 200px; padding: 10px; font-size: 13px; line-height: 1.5; ' +
-        'border: 1px solid #dadce0; border-radius: 8px; resize: vertical; }' +
-      'textarea:focus { outline: none; border-color: #1A73E8; box-shadow: 0 0 0 1px #1A73E8; }' +
-      '.bar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }' +
-      'button { padding: 8px 20px; border-radius: 20px; border: none; font-size: 13px; font-weight: 500; cursor: pointer; }' +
-      '.ok { background: #1A73E8; color: #fff; } .ok:hover { background: #1765CC; }' +
-      '.no { background: #f1f3f4; color: #5f6368; } .no:hover { background: #e8eaed; }' +
-    '</style>' +
-    '<textarea id="p">' + escapeHtml_(current) + '</textarea>' +
-    '<div class="bar">' +
-      '<button class="no" onclick="google.script.host.close()">Cancel</button>' +
-      '<button class="ok" onclick="save()">Save</button>' +
-    '</div>' +
-    '<script>' +
-      'function save(){' +
-        'var v=document.getElementById("p").value;' +
-        'google.script.run.withSuccessHandler(function(){google.script.host.close()}).saveCustomPrompt(v);' +
-      '}' +
-    '</script>'
-  ).setWidth(500).setHeight(320);
-  getUi_().showModalDialog(html, 'Edit Prompt');
-}
-
-function menuNewSession_(e) {
-  resetSessionId();
-  getUi_().alert('Copy-that', 'New session started.', getUi_().ButtonSet.OK);
-}
-
-function menuResetPrompt_(e) {
-  var ui = getUi_();
-  saveCustomPrompt('');
-  ui.alert('Copy-that', 'Prompt reset to default.', ui.ButtonSet.OK);
-}
-
-function menuSetPat_(e) {
-  var ui = getUi_();
-  var hasPat = !!getPat();
-  var msg = hasPat
-    ? 'Token is currently set. Enter a new one to replace it:'
-    : 'Paste your DevRev Personal Access Token:';
-  var resp = ui.prompt('Set PAT Token', msg, ui.ButtonSet.OK_CANCEL);
-  if (resp.getSelectedButton() === ui.Button.OK) {
-    var token = resp.getResponseText().trim();
-    if (token) {
-      savePat(token);
-      ui.alert('Copy-that', 'PAT token saved.', ui.ButtonSet.OK);
-    }
   }
 }
 
@@ -150,8 +88,10 @@ function onSlidesHomepage(e) {
 
 function buildHomepageCard_() {
   Logger.log('buildHomepageCard_: building');
+  var hasOpenAI = !!getOpenAIKey_();
   var hasPat = !!getPat();
-  Logger.log('buildHomepageCard_: hasPat=' + hasPat);
+  var isReady = hasOpenAI || hasPat;
+  Logger.log('buildHomepageCard_: openai=' + hasOpenAI + ' devrev=' + hasPat);
 
   var card = CardService.newCardBuilder()
     .setHeader(CardService.newCardHeader()
@@ -162,66 +102,34 @@ function buildHomepageCard_() {
 
   // Status pill
   var status = CardService.newCardSection();
-  if (hasPat) {
+  if (isReady) {
     status.addWidget(CardService.newDecoratedText()
       .setText('<font color="#188038"><b>Ready</b></font>')
-      .setBottomLabel('AI agent connected')
+      .setBottomLabel(hasOpenAI ? 'Powered by AI' : 'AI agent connected')
       .setStartIcon(CardService.newIconImage()
         .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/check_circle/v11/gm_grey-24dp/2x/gm_check_circle_gm_grey_24dp.png')));
   } else {
     status.addWidget(CardService.newDecoratedText()
-      .setText('<font color="#EA8600"><b>Setup needed</b></font>')
-      .setBottomLabel('Add your PAT token below')
+      .setText('<font color="#D93025"><b>Not configured</b></font>')
+      .setBottomLabel('Contact your admin to set up this add-on')
       .setStartIcon(CardService.newIconImage()
-        .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/warning/v11/gm_grey-24dp/2x/gm_warning_gm_grey_24dp.png')));
+        .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/error/v11/gm_grey-24dp/2x/gm_error_gm_grey_24dp.png')));
   }
   card.addSection(status);
 
-  // Main actions
+  // Main action
   var actions = CardService.newCardSection()
     .setHeader('Actions');
 
   actions.addWidget(CardService.newDecoratedText()
     .setText('<b>Fix copy</b>')
-    .setBottomLabel('Rewrite selected text on-brand (may take 10\u201320s)')
+    .setBottomLabel('Rewrite selected text on-brand')
     .setWrapText(true)
     .setStartIcon(CardService.newIconImage()
       .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/edit/v11/gm_grey-24dp/2x/gm_edit_gm_grey_24dp.png'))
     .setOnClickAction(CardService.newAction().setFunctionName('cardFixCopy')));
 
-  if (!hasPat) {
-    actions.addWidget(CardService.newDivider());
-    actions.addWidget(CardService.newTextParagraph()
-      .setText('<font color="#80868B"><i>Set up your PAT token in Settings to get started.</i></font>'));
-  }
-
   card.addSection(actions);
-
-  // Quick actions
-  var tools = CardService.newCardSection()
-    .setHeader('Tools');
-
-  tools.addWidget(CardService.newDecoratedText()
-    .setText('New session')
-    .setBottomLabel('Reset agent context')
-    .setStartIcon(CardService.newIconImage()
-      .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/refresh/v11/gm_grey-24dp/2x/gm_refresh_gm_grey_24dp.png'))
-    .setOnClickAction(CardService.newAction().setFunctionName('cardNewSession')));
-
-  tools.addWidget(CardService.newDecoratedText()
-    .setText('Edit prompt')
-    .setBottomLabel('Customize rewriting instructions')
-    .setStartIcon(CardService.newIconImage()
-      .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/tune/v11/gm_grey-24dp/2x/gm_tune_gm_grey_24dp.png'))
-    .setOnClickAction(CardService.newAction().setFunctionName('cardEditPrompt')));
-
-  card.addSection(tools);
-
-  // Fixed footer for settings
-  card.setFixedFooter(CardService.newFixedFooter()
-    .setPrimaryButton(CardService.newTextButton()
-      .setText('Settings')
-      .setOnClickAction(CardService.newAction().setFunctionName('cardShowSettings'))));
 
   return card.build();
 }
@@ -230,9 +138,9 @@ function buildHomepageCard_() {
 
 function cardFixCopy(e) {
   Logger.log('cardFixCopy: start');
-  if (!getPat()) {
-    Logger.log('cardFixCopy: no PAT token');
-    return buildErrorCard_('No PAT token configured. Open Settings to add your DevRev token.');
+  if (!getOpenAIKey_() && !getPat()) {
+    Logger.log('cardFixCopy: no backend configured');
+    return buildErrorCard_('Add-on not configured. Contact your admin.');
   }
 
   var editor = getEditorType_();
@@ -334,142 +242,6 @@ function buildErrorCard_(message) {
 
   return CardService.newActionResponseBuilder()
     .setNavigation(CardService.newNavigation().pushCard(card.build()))
-    .build();
-}
-
-// ── Card: Settings ──
-
-function cardNewSession(e) {
-  Logger.log('cardNewSession: resetting');
-  resetSessionId();
-  Logger.log('cardNewSession: done');
-  return cardNotify_('New session started');
-}
-
-function cardEditPrompt(e) {
-  return CardService.newActionResponseBuilder()
-    .setNavigation(CardService.newNavigation().pushCard(buildPromptCard_()))
-    .build();
-}
-
-function buildPromptCard_() {
-  var card = CardService.newCardBuilder()
-    .setHeader(CardService.newCardHeader().setTitle('Edit prompt'));
-
-  var section = CardService.newCardSection();
-
-  section.addWidget(CardService.newTextParagraph()
-    .setText('Customize the instructions sent to the AI agent. Leave blank to use the default.'));
-
-  section.addWidget(CardService.newTextInput()
-    .setFieldName('prompt')
-    .setTitle('Prompt')
-    .setMultiline(true)
-    .setValue(getCustomPrompt() || DEFAULT_PROMPT));
-
-  card.addSection(section);
-
-  card.setFixedFooter(CardService.newFixedFooter()
-    .setPrimaryButton(CardService.newTextButton()
-      .setText('Save prompt')
-      .setOnClickAction(CardService.newAction().setFunctionName('cardSavePrompt')))
-    .setSecondaryButton(CardService.newTextButton()
-      .setText('Reset to default')
-      .setOnClickAction(CardService.newAction().setFunctionName('cardResetPrompt'))));
-
-  return card.build();
-}
-
-function cardSavePrompt(e) {
-  var prompt = (e.formInput && e.formInput.prompt) ? e.formInput.prompt.trim() : '';
-  saveCustomPrompt(prompt === DEFAULT_PROMPT ? '' : prompt);
-  return CardService.newActionResponseBuilder()
-    .setNavigation(CardService.newNavigation().popCard())
-    .setNotification(CardService.newNotification().setText('Prompt saved'))
-    .build();
-}
-
-function cardShowSettings(e) {
-  return CardService.newActionResponseBuilder()
-    .setNavigation(CardService.newNavigation().pushCard(buildSettingsCard_()))
-    .build();
-}
-
-function buildSettingsCard_() {
-  var card = CardService.newCardBuilder()
-    .setHeader(CardService.newCardHeader().setTitle('Settings'));
-
-  // PAT token
-  var patSection = CardService.newCardSection().setHeader('Authentication');
-
-  var currentPat = getPat();
-  if (currentPat) {
-    patSection.addWidget(CardService.newDecoratedText()
-      .setText('Token configured')
-      .setBottomLabel('Ending in \u2026' + currentPat.slice(-6))
-      .setStartIcon(CardService.newIconImage()
-        .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/lock/v11/gm_grey-24dp/2x/gm_lock_gm_grey_24dp.png')));
-  }
-  patSection.addWidget(CardService.newTextInput()
-    .setFieldName('pat')
-    .setTitle(currentPat ? 'Replace token' : 'DevRev PAT Token')
-    .setHint('Paste a new token to ' + (currentPat ? 'replace' : 'set up')));
-
-  card.addSection(patSection);
-
-  // Prompt
-  var promptSection = CardService.newCardSection().setHeader('Prompt');
-
-  promptSection.addWidget(CardService.newTextInput()
-    .setFieldName('prompt')
-    .setTitle('Custom Prompt')
-    .setHint('Leave blank to use default')
-    .setMultiline(true)
-    .setValue(getCustomPrompt() || DEFAULT_PROMPT));
-
-  promptSection.addWidget(CardService.newDecoratedText()
-    .setText('Reset to default')
-    .setStartIcon(CardService.newIconImage().setIcon(CardService.Icon.INVITE))
-    .setOnClickAction(CardService.newAction().setFunctionName('cardResetPrompt')));
-
-  card.addSection(promptSection);
-
-  // Save
-  var actions = CardService.newCardSection();
-
-  actions.addWidget(CardService.newTextButton()
-    .setText('Save settings')
-    .setTextButtonStyle(CardService.TextButtonStyle.FILLED)
-    .setBackgroundColor('#1A73E8')
-    .setOnClickAction(CardService.newAction().setFunctionName('cardSaveSettings')));
-
-  card.addSection(actions);
-
-  return card.build();
-}
-
-function cardSaveSettings(e) {
-  Logger.log('cardSaveSettings: saving');
-  var pat = (e.formInput && e.formInput.pat) ? e.formInput.pat.trim() : '';
-  var prompt = (e.formInput && e.formInput.prompt) ? e.formInput.prompt.trim() : '';
-
-  if (!pat && !getPat()) return cardNotify_('PAT token is required.');
-
-  if (pat) savePat(pat);
-  saveCustomPrompt(prompt === DEFAULT_PROMPT ? '' : prompt);
-
-  Logger.log('cardSaveSettings: done, pat=' + (pat ? 'updated' : 'unchanged'));
-  return CardService.newActionResponseBuilder()
-    .setNavigation(CardService.newNavigation().popToRoot().updateCard(buildHomepageCard_()))
-    .setNotification(CardService.newNotification().setText('Settings saved'))
-    .build();
-}
-
-function cardResetPrompt(e) {
-  saveCustomPrompt('');
-  return CardService.newActionResponseBuilder()
-    .setNavigation(CardService.newNavigation().updateCard(buildSettingsCard_()))
-    .setNotification(CardService.newNotification().setText('Prompt reset to default'))
     .build();
 }
 
