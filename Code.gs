@@ -279,14 +279,14 @@ function buildHomepageErrorCard_(message) {
 // =============================================
 
 function callAgentWithContext_(text, tone, instruction) {
-  var prefix = '';
+  var context = '';
   if (tone && tone !== 'auto') {
-    prefix += (TONE_PROMPTS[tone] || '') + '\n';
+    context += (TONE_PROMPTS[tone] || '') + '\n';
   }
   if (instruction) {
-    prefix += 'Additional instruction: ' + instruction + '\n';
+    context += 'Additional instruction: ' + instruction + '\n';
   }
-  return callAgent(prefix + text);
+  return callAgent(text, context);
 }
 
 function fixCopyShapes_(shapes) {

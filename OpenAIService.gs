@@ -29,7 +29,7 @@ var OPENAI_SYSTEM_SUFFIX =
 
 // ── Public API ──
 
-function callOpenAI(text) {
+function callOpenAI(text, context) {
   var apiKey = getOpenAIKey_();
   if (!apiKey) throw new Error('OpenAI API key not configured.');
 
@@ -37,9 +37,17 @@ function callOpenAI(text) {
   if (!brandDoc) throw new Error('Brand guidelines not loaded. Run setupBrandDoc() from the script editor.');
 
   var systemPrompt = OPENAI_SYSTEM_PREFIX + brandDoc + OPENAI_SYSTEM_SUFFIX;
-  var userMessage = '--- BEGIN TEXT TO EDIT ---\n' + text + '\n--- END TEXT TO EDIT ---';
 
-  Logger.log('callOpenAI: input length=' + text.length + ' system=' + systemPrompt.length);
+  var messages = [{ role: 'system', content: systemPrompt }];
+
+  if (context) {
+    messages.push({ role: 'user', content: context.trim() });
+    messages.push({ role: 'assistant', content: 'Understood. I will apply these instructions when rewriting the text.' });
+  }
+
+  messages.push({ role: 'user', content: '--- BEGIN TEXT TO EDIT ---\n' + text + '\n--- END TEXT TO EDIT ---' });
+
+  Logger.log('callOpenAI: input length=' + text.length + ' system=' + systemPrompt.length + ' context=' + (context ? context.length : 0));
 
   var start = Date.now();
   var response = UrlFetchApp.fetch(OPENAI_URL, {
@@ -48,10 +56,7 @@ function callOpenAI(text) {
     headers: { 'Authorization': 'Bearer ' + apiKey },
     payload: JSON.stringify({
       model: OPENAI_MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage }
-      ],
+      messages: messages,
       temperature: 0.7
     }),
     muteHttpExceptions: true
