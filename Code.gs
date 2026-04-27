@@ -81,31 +81,12 @@ function onSlidesHomepage(e) {
 }
 
 function buildHomepageCard_() {
-  var isReady = !!getOpenAIKey_();
-
   var card = CardService.newCardBuilder()
     .setHeader(CardService.newCardHeader()
       .setTitle('Copy-that')
       .setSubtitle('Turn your writing into on-brand copy')
       .setImageUrl(LOGO_URL)
       .setImageStyle(CardService.ImageStyle.CIRCLE));
-
-  // Status pill
-  var status = CardService.newCardSection();
-  if (isReady) {
-    status.addWidget(CardService.newDecoratedText()
-      .setText('<font color="#188038"><b>Ready</b></font>')
-      .setBottomLabel('Powered by AI')
-      .setStartIcon(CardService.newIconImage()
-        .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/check_circle/v11/gm_grey-24dp/2x/gm_check_circle_gm_grey_24dp.png')));
-  } else {
-    status.addWidget(CardService.newDecoratedText()
-      .setText('<font color="#D93025"><b>Not configured</b></font>')
-      .setBottomLabel('Contact your admin to set up this add-on')
-      .setStartIcon(CardService.newIconImage()
-        .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/error/v11/gm_grey-24dp/2x/gm_error_gm_grey_24dp.png')));
-  }
-  card.addSection(status);
 
   // Tone selector
   var toneSection = CardService.newCardSection()
