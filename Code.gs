@@ -1,31 +1,34 @@
 /**
- * Copy-that — Google Workspace Add-on
- * Turn your writing into on-brand copy – instantly
+ * Copy-that -- Google Workspace Add-on
+ * Turn your writing into on-brand copy -- instantly
  *
  * Two entry points:
- * 1. Extensions menu → instant text replacement
- * 2. CardService sidebar → full UI with settings
+ * 1. Extensions menu --> Fix copy (instant replacement)
+ * 2. CardService sidebar --> full UI with tone, custom instructions, fix-all
  */
-
-// Icon: Deploy this script as a web app (Publish → Deploy as web app),
-// then replace this URL with your web app URL + "?icon=1"
 
 var LOGO_URL = 'https://raw.githubusercontent.com/xorkavi/computerify-google/main/icons/icon128.png';
 
-// Serves the SVG icon when deployed as a web app.
-// Deploy once, then set LOGO_URL to your web app URL + "?icon=1"
-function doGet(e) {
-  var svg =
-    '<svg width="48" height="48" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-    '<path d="M8.40252 14H5.91945L5.42383 4.70325H8.61843L8.40496 14H8.40252Z" fill="#302E2F" fill-opacity="0.94"/>' +
-    '<path d="M14.3809 4.70325H17.5755L17.0798 14H14.5968L14.3833 4.70325H14.3809Z" fill="#302E2F" fill-opacity="0.94"/>' +
-    '</svg>';
-  return ContentService.createTextOutput(svg).setMimeType(ContentService.MimeType.XML);
-}
+var TONE_OPTIONS = [
+  { key: 'auto',     label: 'Auto-detect' },
+  { key: 'email',    label: 'Customer email' },
+  { key: 'sales',    label: 'Sales deck' },
+  { key: 'slides',   label: 'Slide bullets' },
+  { key: 'internal', label: 'Internal comms' },
+  { key: 'social',   label: 'Social post' }
+];
 
-// ═══════════════════════════════════════════
+var TONE_PROMPTS = {
+  email:    'This is a customer email. Tone: warm, supportive, 4-6/10 on the smile-to-serious dial.',
+  sales:    'This is a sales deck. Tone: confident, specific, proof points. 5-6/10.',
+  slides:   'This is a slide. Tone: punchy, scannable, benefit-led. Keep it very short.',
+  internal: 'This is an internal team message. Tone: friendly, professional. 5-7/10.',
+  social:   'This is a social media post. Tone: energizing, excited, community-focused. 7-8/10.'
+};
+
+// =============================================
 // EXTENSIONS MENU
-// ═══════════════════════════════════════════
+// =============================================
 
 function onOpen(e) {
   var ui = getUi_();
@@ -40,20 +43,21 @@ function onInstall(e) { onOpen(e); }
 
 function menuFixCopy_(e) {
   var ui = getUi_();
-  if (!getOpenAIKey_() && !getPat()) { ui.alert('Copy-that', 'Add-on not configured.\nContact your admin to set up this add-on.', ui.ButtonSet.OK); return; }
+  if (!getOpenAIKey_()) { ui.alert('Copy-that', 'Add-on not configured.\nContact your admin.', ui.ButtonSet.OK); return; }
 
   var editor = getEditorType_();
-
   try {
     if (editor === 'slides') {
       var shapes = getSelectedSlidesShapes();
-      if (shapes.length === 0) { ui.alert('Copy-that', 'No text selected.\nSelect one or more text boxes, then try again.', ui.ButtonSet.OK); return; }
+      if (shapes.length === 0) { ui.alert('Copy-that', 'No text selected.\nSelect text boxes first.', ui.ButtonSet.OK); return; }
       fixCopyShapes_(shapes);
+      ui.alert('Copy-that', 'Done -- ' + shapes.length + ' text block' + (shapes.length > 1 ? 's' : '') + ' updated.', ui.ButtonSet.OK);
     } else if (editor === 'docs') {
       var sel = getDocsSelection();
-      if (!sel.found) { ui.alert('Copy-that', 'No text selected.\nHighlight text first, then try again.', ui.ButtonSet.OK); return; }
+      if (!sel.found) { ui.alert('Copy-that', 'No text selected.\nHighlight text first.', ui.ButtonSet.OK); return; }
       var result = callAgent(sel.text);
       replaceDocsSelection(result);
+      ui.alert('Copy-that', 'Done -- text updated.', ui.ButtonSet.OK);
     } else {
       ui.alert('Copy-that', 'Could not detect editor type.', ui.ButtonSet.OK);
     }
@@ -62,36 +66,22 @@ function menuFixCopy_(e) {
   }
 }
 
-// ═══════════════════════════════════════════
+// =============================================
 // CARDSERVICE SIDEBAR
-// ═══════════════════════════════════════════
+// =============================================
 
 function onDocsHomepage(e) {
-  try {
-    return buildHomepageCard_();
-  } catch (err) {
-    Logger.log('Homepage error: ' + err.message + '\n' + err.stack);
-    return buildHomepageErrorCard_(err.message);
-  }
+  try { return buildHomepageCard_(); }
+  catch (err) { return buildHomepageErrorCard_(err.message); }
 }
 
 function onSlidesHomepage(e) {
-  try {
-    return buildHomepageCard_();
-  } catch (err) {
-    Logger.log('Homepage error: ' + err.message + '\n' + err.stack);
-    return buildHomepageErrorCard_(err.message);
-  }
+  try { return buildHomepageCard_(); }
+  catch (err) { return buildHomepageErrorCard_(err.message); }
 }
 
-// ── Card: Homepage ──
-
 function buildHomepageCard_() {
-  Logger.log('buildHomepageCard_: building');
-  var hasOpenAI = !!getOpenAIKey_();
-  var hasPat = !!getPat();
-  var isReady = hasOpenAI || hasPat;
-  Logger.log('buildHomepageCard_: openai=' + hasOpenAI + ' devrev=' + hasPat);
+  var isReady = !!getOpenAIKey_();
 
   var card = CardService.newCardBuilder()
     .setHeader(CardService.newCardHeader()
@@ -105,7 +95,7 @@ function buildHomepageCard_() {
   if (isReady) {
     status.addWidget(CardService.newDecoratedText()
       .setText('<font color="#188038"><b>Ready</b></font>')
-      .setBottomLabel(hasOpenAI ? 'Powered by AI' : 'AI agent connected')
+      .setBottomLabel('Powered by AI')
       .setStartIcon(CardService.newIconImage()
         .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/check_circle/v11/gm_grey-24dp/2x/gm_check_circle_gm_grey_24dp.png')));
   } else {
@@ -117,111 +107,150 @@ function buildHomepageCard_() {
   }
   card.addSection(status);
 
-  // Main action
+  // Tone selector
+  var toneSection = CardService.newCardSection()
+    .setHeader('Context');
+  var toneDropdown = CardService.newSelectionInput()
+    .setType(CardService.SelectionInputType.DROPDOWN)
+    .setTitle('Tone')
+    .setFieldName('tone');
+  for (var i = 0; i < TONE_OPTIONS.length; i++) {
+    toneDropdown.addItem(TONE_OPTIONS[i].label, TONE_OPTIONS[i].key, i === 0);
+  }
+  toneSection.addWidget(toneDropdown);
+
+  // Custom instruction
+  toneSection.addWidget(CardService.newTextInput()
+    .setFieldName('instruction')
+    .setTitle('Extra instructions (optional)')
+    .setHint('e.g. Make it shorter, More urgent, For C-level audience'));
+
+  card.addSection(toneSection);
+
+  // Actions
   var actions = CardService.newCardSection()
     .setHeader('Actions');
 
   actions.addWidget(CardService.newDecoratedText()
-    .setText('<b>Fix copy</b>')
+    .setText('<b>Fix selected text</b>')
     .setBottomLabel('Rewrite selected text on-brand')
     .setWrapText(true)
     .setStartIcon(CardService.newIconImage()
       .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/edit/v11/gm_grey-24dp/2x/gm_edit_gm_grey_24dp.png'))
     .setOnClickAction(CardService.newAction().setFunctionName('cardFixCopy')));
 
+  actions.addWidget(CardService.newDecoratedText()
+    .setText('<b>Fix entire document</b>')
+    .setBottomLabel('Rewrite all text blocks on-brand')
+    .setWrapText(true)
+    .setStartIcon(CardService.newIconImage()
+      .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/auto_fix_high/v11/gm_grey-24dp/2x/gm_auto_fix_high_gm_grey_24dp.png'))
+    .setOnClickAction(CardService.newAction().setFunctionName('cardFixAll')));
+
   card.addSection(actions);
 
   return card.build();
 }
 
-// ── Card action: Fix copy ──
+// =============================================
+// CARD ACTION: Fix selected text
+// =============================================
 
 function cardFixCopy(e) {
-  Logger.log('cardFixCopy: start');
-  if (!getOpenAIKey_() && !getPat()) {
-    Logger.log('cardFixCopy: no backend configured');
+  if (!getOpenAIKey_()) {
     return buildErrorCard_('Add-on not configured. Contact your admin.');
   }
 
+  var tone = (e && e.formInput && e.formInput.tone) || 'auto';
+  var instruction = (e && e.formInput && e.formInput.instruction) || '';
   var editor = getEditorType_();
-  Logger.log('cardFixCopy: editor=' + editor);
 
   try {
     var count = 0;
 
     if (editor === 'slides') {
       var shapes = getSelectedSlidesShapes();
-      Logger.log('cardFixCopy: shapes found=' + shapes.length);
       if (shapes.length === 0) {
         return buildErrorCard_('No text selected.\n\nSelect one or more text boxes in your slide, then try again.');
       }
-      count = fixCopyShapes_(shapes);
+      for (var i = 0; i < shapes.length; i++) {
+        var r = callAgentWithContext_(shapes[i].text, tone, instruction);
+        replaceShapeTextPreserveStyle_(shapes[i].shape, r);
+        count++;
+      }
     } else if (editor === 'docs') {
       var sel = getDocsSelection();
-      Logger.log('cardFixCopy: docs selection found=' + sel.found + ' mode=' + (sel.mode || 'none'));
       if (!sel.found) {
-        return buildErrorCard_('No text selected.\n\nHighlight text in your document, then try again. Tip: click inside a paragraph if the sidebar took focus.');
+        return buildErrorCard_('No text selected.\n\nHighlight text in your document, then try again.');
       }
-      var r = callAgent(sel.text);
+      var r = callAgentWithContext_(sel.text, tone, instruction);
       replaceDocsSelection(r);
       count = 1;
     } else {
-      return buildErrorCard_('Could not detect editor type. Make sure you\'re in Google Docs or Slides.');
+      return buildErrorCard_('Could not detect editor type.');
     }
 
-    Logger.log('cardFixCopy: success, count=' + count);
-    return cardNotify_('Done \u2014 ' + count + ' text block' + (count > 1 ? 's' : '') + ' updated');
+    return cardNotify_('Done -- ' + count + ' text block' + (count > 1 ? 's' : '') + ' updated');
 
   } catch (err) {
-    Logger.log('cardFixCopy: ERROR ' + err.message + '\n' + err.stack);
     return buildErrorCard_(err.message);
   }
 }
 
-// ── Card: Result ──
+// =============================================
+// CARD ACTION: Fix entire document
+// =============================================
 
-function buildResultCard_(originals, results) {
-  var count = results.length;
-  var card = CardService.newCardBuilder()
-    .setHeader(CardService.newCardHeader()
-      .setTitle('Updated')
-      .setSubtitle(count + ' text block' + (count > 1 ? 's' : '') + ' transformed')
-      .setImageUrl(LOGO_URL)
-      .setImageStyle(CardService.ImageStyle.CIRCLE));
-
-  // Success banner
-  var banner = CardService.newCardSection();
-  banner.addWidget(CardService.newDecoratedText()
-    .setText('<font color="#188038"><b>Text replaced in your document</b></font>')
-    .setWrapText(true)
-    .setStartIcon(CardService.newIconImage()
-      .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/check_circle/v11/gm_grey-24dp/2x/gm_check_circle_gm_grey_24dp.png')));
-  card.addSection(banner);
-
-  // Before/after for each block
-  for (var i = 0; i < originals.length; i++) {
-    var section = CardService.newCardSection();
-    if (count > 1) section.setHeader('Block ' + (i + 1));
-
-    section.addWidget(CardService.newDecoratedText()
-      .setTopLabel('BEFORE')
-      .setText('<font color="#80868B">' + escapeHtml_(truncate_(originals[i], 200)) + '</font>')
-      .setWrapText(true));
-
-    section.addWidget(CardService.newDecoratedText()
-      .setTopLabel('AFTER')
-      .setText(escapeHtml_(truncate_(results[i], 200)))
-      .setWrapText(true));
-
-    card.addSection(section);
+function cardFixAll(e) {
+  if (!getOpenAIKey_()) {
+    return buildErrorCard_('Add-on not configured. Contact your admin.');
   }
 
-  return CardService.newActionResponseBuilder()
-    .setNavigation(CardService.newNavigation().pushCard(card.build()))
-    .build();
+  var tone = (e && e.formInput && e.formInput.tone) || 'auto';
+  var instruction = (e && e.formInput && e.formInput.instruction) || '';
+  var editor = getEditorType_();
+
+  try {
+    var count = 0;
+
+    if (editor === 'docs') {
+      var paras = getEntireDocParagraphs();
+      if (!paras || paras.length === 0) {
+        return buildErrorCard_('No text found in the document.');
+      }
+      for (var i = 0; i < paras.length; i++) {
+        if (!paras[i].text || paras[i].text.trim() === '') continue;
+        var rewritten = callAgentWithContext_(paras[i].text, tone, instruction);
+        if (paras[i].element && paras[i].element.editAsText) {
+          paras[i].element.editAsText().setText(rewritten);
+        }
+        count++;
+      }
+    } else if (editor === 'slides') {
+      var shapes = getAllSlidesShapes();
+      if (!shapes || shapes.length === 0) {
+        return buildErrorCard_('No text found in the presentation.');
+      }
+      for (var j = 0; j < shapes.length; j++) {
+        if (!shapes[j].text || shapes[j].text.trim() === '') continue;
+        var rewritten = callAgentWithContext_(shapes[j].text, tone, instruction);
+        replaceShapeTextPreserveStyle_(shapes[j].shape, rewritten);
+        count++;
+      }
+    } else {
+      return buildErrorCard_('Could not detect editor type.');
+    }
+
+    return cardNotify_('Done -- ' + count + ' text block' + (count > 1 ? 's' : '') + ' updated');
+
+  } catch (err) {
+    return buildErrorCard_('Error during fix-all: ' + err.message);
+  }
 }
 
-// ── Card: Error ──
+// =============================================
+// CARD: Error
+// =============================================
 
 function buildErrorCard_(message) {
   var card = CardService.newCardBuilder()
@@ -245,106 +274,6 @@ function buildErrorCard_(message) {
     .build();
 }
 
-// ═══════════════════════════════════════════
-// SHARED HELPERS
-// ═══════════════════════════════════════════
-
-/**
- * Transform each shape individually — one API call per shape.
- */
-function fixCopyShapes_(shapes) {
-  Logger.log('fixCopyShapes_: processing ' + shapes.length + ' shape(s)');
-  var count = 0;
-  for (var i = 0; i < shapes.length; i++) {
-    Logger.log('fixCopyShapes_: shape ' + (i + 1) + '/' + shapes.length + ' len=' + shapes[i].text.length);
-    var r = callAgent(shapes[i].text);
-    replaceShapeTextPreserveStyle_(shapes[i].shape, r);
-    count++;
-  }
-  Logger.log('fixCopyShapes_: done, count=' + count);
-  return count;
-}
-
-/**
- * Replace shape text while preserving paragraph and text styles.
- * Maps new paragraphs to old ones by index — extra old paragraphs are cleared,
- * extra new paragraphs inherit the style of the last original paragraph.
- */
-function replaceShapeTextPreserveStyle_(shape, newText) {
-  var textRange = shape.getText();
-  var oldParagraphs = textRange.getParagraphs();
-  var newLines = newText.split('\n');
-
-  // Snapshot styles from each original paragraph's first character
-  var styles = [];
-  for (var i = 0; i < oldParagraphs.length; i++) {
-    var pRange = oldParagraphs[i].getRange();
-    styles.push({
-      paragraphStyle: pRange.getParagraphStyle(),
-      textStyle: pRange.getTextStyle()
-    });
-  }
-
-  // Fall back to simple setText if only one paragraph or snapshot failed
-  if (styles.length <= 1) {
-    textRange.setText(newText);
-    return;
-  }
-
-  // Clear and rewrite
-  textRange.setText(newText);
-
-  // Re-apply styles to each new paragraph
-  var newParagraphs = textRange.getParagraphs();
-  for (var j = 0; j < newParagraphs.length; j++) {
-    var styleIdx = Math.min(j, styles.length - 1);
-    var src = styles[styleIdx];
-    var dest = newParagraphs[j].getRange();
-
-    try {
-      // Preserve font size — the most visible style difference (heading vs body)
-      var fontSize = src.textStyle.getFontSize();
-      if (fontSize) dest.getTextStyle().setFontSize(fontSize);
-
-      var bold = src.textStyle.isBold();
-      if (bold !== null) dest.getTextStyle().setBold(bold);
-
-      var fontFamily = src.textStyle.getFontFamily();
-      if (fontFamily) dest.getTextStyle().setFontFamily(fontFamily);
-
-      var color = src.textStyle.getForegroundColor();
-      if (color) dest.getTextStyle().setForegroundColor(color);
-
-      var spacing = src.paragraphStyle.getSpaceAbove();
-      if (spacing !== null) dest.getParagraphStyle().setSpaceAbove(spacing);
-
-      var spacingBelow = src.paragraphStyle.getSpaceBelow();
-      if (spacingBelow !== null) dest.getParagraphStyle().setSpaceBelow(spacingBelow);
-    } catch (e) {
-      Logger.log('replaceShapeTextPreserveStyle_: style copy failed for paragraph ' + j + ': ' + e.message);
-    }
-  }
-}
-
-function getSelection_() {
-  var type = getEditorType_();
-  if (type === 'docs') return getDocsSelection();
-  if (type === 'slides') return getSlidesSelection();
-  return { found: false };
-}
-
-function getEditorType_() {
-  try { if (DocumentApp.getActiveDocument()) return 'docs'; } catch (e) {}
-  try { if (SlidesApp.getActivePresentation()) return 'slides'; } catch (e) {}
-  return 'unknown';
-}
-
-function getUi_() {
-  try { return DocumentApp.getUi(); } catch (e) {}
-  try { return SlidesApp.getUi(); } catch (e) {}
-  return null;
-}
-
 function buildHomepageErrorCard_(message) {
   var card = CardService.newCardBuilder()
     .setHeader(CardService.newCardHeader()
@@ -364,16 +293,91 @@ function buildHomepageErrorCard_(message) {
   return card.build();
 }
 
+// =============================================
+// SHARED HELPERS
+// =============================================
+
+function callAgentWithContext_(text, tone, instruction) {
+  var prefix = '';
+  if (tone && tone !== 'auto') {
+    prefix += (TONE_PROMPTS[tone] || '') + '\n';
+  }
+  if (instruction) {
+    prefix += 'Additional instruction: ' + instruction + '\n';
+  }
+  return callAgent(prefix + text);
+}
+
+function fixCopyShapes_(shapes) {
+  var count = 0;
+  for (var i = 0; i < shapes.length; i++) {
+    var r = callAgent(shapes[i].text);
+    replaceShapeTextPreserveStyle_(shapes[i].shape, r);
+    count++;
+  }
+  return count;
+}
+
+function replaceShapeTextPreserveStyle_(shape, newText) {
+  var textRange = shape.getText();
+  var oldParagraphs = textRange.getParagraphs();
+
+  var styles = [];
+  for (var i = 0; i < oldParagraphs.length; i++) {
+    var pRange = oldParagraphs[i].getRange();
+    styles.push({
+      paragraphStyle: pRange.getParagraphStyle(),
+      textStyle: pRange.getTextStyle()
+    });
+  }
+
+  if (styles.length <= 1) {
+    textRange.setText(newText);
+    return;
+  }
+
+  textRange.setText(newText);
+
+  var newParagraphs = textRange.getParagraphs();
+  for (var j = 0; j < newParagraphs.length; j++) {
+    var styleIdx = Math.min(j, styles.length - 1);
+    var src = styles[styleIdx];
+    var dest = newParagraphs[j].getRange();
+    try {
+      var fontSize = src.textStyle.getFontSize();
+      if (fontSize) dest.getTextStyle().setFontSize(fontSize);
+      var bold = src.textStyle.isBold();
+      if (bold !== null) dest.getTextStyle().setBold(bold);
+      var fontFamily = src.textStyle.getFontFamily();
+      if (fontFamily) dest.getTextStyle().setFontFamily(fontFamily);
+      var color = src.textStyle.getForegroundColor();
+      if (color) dest.getTextStyle().setForegroundColor(color);
+      var spacing = src.paragraphStyle.getSpaceAbove();
+      if (spacing !== null) dest.getParagraphStyle().setSpaceAbove(spacing);
+      var spacingBelow = src.paragraphStyle.getSpaceBelow();
+      if (spacingBelow !== null) dest.getParagraphStyle().setSpaceBelow(spacingBelow);
+    } catch (e) {
+      Logger.log('replaceShapeTextPreserveStyle_: style copy failed for paragraph ' + j);
+    }
+  }
+}
+
+function getEditorType_() {
+  try { if (DocumentApp.getActiveDocument()) return 'docs'; } catch (e) {}
+  try { if (SlidesApp.getActivePresentation()) return 'slides'; } catch (e) {}
+  return 'unknown';
+}
+
+function getUi_() {
+  try { return DocumentApp.getUi(); } catch (e) {}
+  try { return SlidesApp.getUi(); } catch (e) {}
+  return null;
+}
+
 function cardNotify_(text) {
   return CardService.newActionResponseBuilder()
     .setNotification(CardService.newNotification().setText(text))
     .build();
-}
-
-function truncate_(str, len) {
-  if (!str) return '';
-  if (str.length <= len) return str;
-  return str.substring(0, len) + '\u2026';
 }
 
 function escapeHtml_(str) {
