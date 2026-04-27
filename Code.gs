@@ -114,7 +114,7 @@ function buildHomepageCard_() {
 
   actions.addWidget(CardService.newDecoratedText()
     .setText('<b>Edit selected text</b>')
-    .setBottomLabel('Rewrite only text you’ve selected')
+    .setBottomLabel('Rewrite only text you\'ve selected')
     .setWrapText(true)
     .setStartIcon(CardService.newIconImage()
       .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/edit/v11/gm_grey-24dp/2x/gm_edit_gm_grey_24dp.png'))
