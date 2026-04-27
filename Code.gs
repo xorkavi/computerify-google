@@ -86,7 +86,7 @@ function buildHomepageCard_() {
       .setTitle('Copy-that')
       .setSubtitle('Turn your writing into on-brand copy')
       .setImageUrl(LOGO_URL)
-      .setImageStyle(CardService.ImageStyle.CIRCLE));
+      .setImageStyle(CardService.ImageStyle.SQUARE));
 
   // Tone selector
   var toneSection = CardService.newCardSection()
