@@ -84,7 +84,7 @@ function buildHomepageCard_() {
   var card = CardService.newCardBuilder()
     .setHeader(CardService.newCardHeader()
       .setTitle('Copy-that')
-      .setSubtitle('Turn your writing into on-brand copy')
+      .setSubtitle('Turn any writing into on-brand copy')
       .setImageUrl(LOGO_URL)
       .setImageStyle(CardService.ImageStyle.SQUARE));
 
@@ -104,7 +104,7 @@ function buildHomepageCard_() {
   toneSection.addWidget(CardService.newTextInput()
     .setFieldName('instruction')
     .setTitle('Extra instructions (optional)')
-    .setHint('e.g. Make it shorter, More urgent, For C-level audience'));
+    .setHint('e.g. Make it 50% shorter; Less urgent; For C-level audience'));
 
   card.addSection(toneSection);
 
@@ -113,16 +113,16 @@ function buildHomepageCard_() {
     .setHeader('Actions');
 
   actions.addWidget(CardService.newDecoratedText()
-    .setText('<b>Fix selected text</b>')
-    .setBottomLabel('Rewrite selected text on-brand')
+    .setText('<b>Edit selected text</b>')
+    .setBottomLabel('Rewrite only text you’ve selected')
     .setWrapText(true)
     .setStartIcon(CardService.newIconImage()
       .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/edit/v11/gm_grey-24dp/2x/gm_edit_gm_grey_24dp.png'))
     .setOnClickAction(CardService.newAction().setFunctionName('cardFixCopy')));
 
   actions.addWidget(CardService.newDecoratedText()
-    .setText('<b>Fix entire document</b>')
-    .setBottomLabel('Rewrite all text blocks on-brand')
+    .setText('<b>Edit entire document</b>')
+    .setBottomLabel('Rewrite all text in this doc')
     .setWrapText(true)
     .setStartIcon(CardService.newIconImage()
       .setIconUrl('https://fonts.gstatic.com/s/i/googlematerialicons/auto_fix_high/v11/gm_grey-24dp/2x/gm_auto_fix_high_gm_grey_24dp.png'))
