@@ -20,10 +20,10 @@ var TONE_OPTIONS = [
 
 var TONE_PROMPTS = {
   email:    'This is a customer email. Tone: warm, supportive, 4-6/10 on the smile-to-serious dial.',
-  sales:    'This is a sales deck. Tone: confident, specific, proof points. 5-6/10.',
-  slides:   'This is a slide. Tone: punchy, scannable, benefit-led. Keep it very short.',
-  internal: 'This is an internal team message. Tone: friendly, professional. 5-7/10.',
-  social:   'This is a social media post. Tone: energizing, excited, community-focused. 7-8/10.'
+  sales:    'This is a sales deck. Tone: confident, specific, compelling, led by proof points. 5-6/10.',
+  slides:   'This is a slide. Tone: punchy, scannable, benefit-led. Keep each bullet short.',
+  internal: 'This is an internal team message. Tone: friendly, teammate-style. 5-7/10.',
+  social:   'This is a social media post. Tone: instantly compelling, energizing. 7-8/10.'
 };
 
 // =============================================
@@ -203,7 +203,7 @@ function cardFixAll(e) {
         if (!paras[i].text || paras[i].text.trim() === '') continue;
         var rewritten = callAgentWithContext_(paras[i].text, tone, instruction);
         if (paras[i].element && paras[i].element.editAsText) {
-          paras[i].element.editAsText().setText(rewritten);
+          setTextPreserveStyle_(paras[i].element.editAsText(), rewritten);
         }
         count++;
       }
@@ -284,7 +284,7 @@ function callAgentWithContext_(text, tone, instruction) {
     context += (TONE_PROMPTS[tone] || '') + '\n';
   }
   if (instruction) {
-    context += 'Additional instruction: ' + instruction + '\n';
+    context += 'Additional instruction (follow this precisely, it overrides defaults): ' + instruction + '\n';
   }
   return callAgent(text, context);
 }

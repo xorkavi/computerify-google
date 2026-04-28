@@ -66,13 +66,13 @@ function replaceDocsSelection(newText) {
       var type = el.getType();
       if (type === DocumentApp.ElementType.PARAGRAPH ||
           type === DocumentApp.ElementType.LIST_ITEM) {
-        if (el.editAsText) el.editAsText().setText(newText);
+        if (el.editAsText) setTextPreserveStyle_(el.editAsText(), newText);
         return;
       }
       if (type === DocumentApp.ElementType.TEXT) {
         var parent = el.getParent();
-        if (parent && parent.editAsText) parent.editAsText().setText(newText);
-        else el.setText(newText);
+        if (parent && parent.editAsText) setTextPreserveStyle_(parent.editAsText(), newText);
+        else setTextPreserveStyle_(el, newText);
         return;
       }
       el = el.getParent();
@@ -112,6 +112,33 @@ function getEntireDocParagraphs() {
 
 // ── Private helpers ──
 
+function captureTextStyle_(textEl) {
+  var text = textEl.getText();
+  if (!text || text.length === 0) return null;
+  var attrs = textEl.getAttributes(0);
+  if (attrs && attrs[DocumentApp.Attribute.LINK_URL] !== undefined) {
+    delete attrs[DocumentApp.Attribute.LINK_URL];
+  }
+  return attrs;
+}
+
+function applyTextStyle_(textEl, attrs) {
+  if (!attrs) return;
+  var text = textEl.getText();
+  if (!text || text.length === 0) return;
+  try {
+    textEl.setAttributes(0, text.length - 1, attrs);
+  } catch (e) {
+    Logger.log('applyTextStyle_: ' + e.message);
+  }
+}
+
+function setTextPreserveStyle_(textEl, newText) {
+  var attrs = captureTextStyle_(textEl);
+  textEl.setText(newText);
+  applyTextStyle_(textEl, attrs);
+}
+
 function extractRangeText_(elements) {
   var parts = [];
   for (var i = 0; i < elements.length; i++) {
@@ -146,7 +173,7 @@ function replaceRange_(elements, newText) {
         textEl.deleteText(re.getStartOffset(), re.getEndOffsetInclusive());
         textEl.insertText(re.getStartOffset(), newText);
       } else {
-        textEl.setText(newText);
+        setTextPreserveStyle_(textEl, newText);
       }
       first = false;
     } else {
