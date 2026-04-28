@@ -6,7 +6,7 @@
 
 // -- Public API --
 
-function callAgent(text) {
+function callAgent(text, context) {
   Logger.log('callAgent: input length=' + text.length);
   var safe = sanitizeUserText_(text);
 
@@ -15,7 +15,7 @@ function callAgent(text) {
   }
 
   Logger.log('callAgent: using OpenAI');
-  var result = callOpenAI(safe);
+  var result = callOpenAI(safe, context);
   Logger.log('callAgent: success, output length=' + result.length);
   return result;
 }
