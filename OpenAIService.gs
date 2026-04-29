@@ -91,7 +91,16 @@ function getOpenAIKey_() {
 }
 
 function getBrandDoc_() {
-  return PropertiesService.getScriptProperties().getProperty('brand_doc') || '';
+  var props = PropertiesService.getScriptProperties();
+  var chunks = parseInt(props.getProperty('brand_doc_chunks') || '0', 10);
+  if (chunks > 0) {
+    var parts = [];
+    for (var i = 0; i < chunks; i++) {
+      parts.push(props.getProperty('brand_doc_' + i) || '');
+    }
+    return parts.join('');
+  }
+  return props.getProperty('brand_doc') || '';
 }
 
 /**
@@ -105,11 +114,37 @@ function setupOpenAIKey(key) {
 
 /**
  * One-time setup: store the brand guidelines document.
- * Run from the script editor. Paste the full brand doc as the argument.
+ * Run from the script editor. Splits into 8KB chunks automatically.
  */
 function setupBrandDoc(doc) {
-  PropertiesService.getScriptProperties().setProperty('brand_doc', doc || '');
-  Logger.log('Brand doc ' + (doc ? 'saved (' + doc.length + ' chars)' : 'cleared'));
+  var props = PropertiesService.getScriptProperties();
+  var oldChunks = parseInt(props.getProperty('brand_doc_chunks') || '0', 10);
+  for (var i = 0; i < oldChunks; i++) {
+    props.deleteProperty('brand_doc_' + i);
+  }
+  props.deleteProperty('brand_doc_chunks');
+  props.deleteProperty('brand_doc');
+
+  if (!doc) {
+    Logger.log('Brand doc cleared');
+    return;
+  }
+
+  var CHUNK_SIZE = 8000;
+  if (doc.length <= CHUNK_SIZE) {
+    props.setProperty('brand_doc', doc);
+    Logger.log('Brand doc saved (' + doc.length + ' chars, 1 chunk)');
+  } else {
+    var chunks = [];
+    for (var j = 0; j < doc.length; j += CHUNK_SIZE) {
+      chunks.push(doc.substring(j, j + CHUNK_SIZE));
+    }
+    for (var k = 0; k < chunks.length; k++) {
+      props.setProperty('brand_doc_' + k, chunks[k]);
+    }
+    props.setProperty('brand_doc_chunks', String(chunks.length));
+    Logger.log('Brand doc saved (' + doc.length + ' chars, ' + chunks.length + ' chunks)');
+  }
 }
 
 /**

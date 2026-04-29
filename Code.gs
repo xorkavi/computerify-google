@@ -104,7 +104,7 @@ function buildHomepageCard_() {
   toneSection.addWidget(CardService.newTextInput()
     .setFieldName('instruction')
     .setTitle('Extra instructions (optional)')
-    .setHint('e.g. Make it 50% shorter; Less urgent; For C-level audience'));
+    .setHint('e.g. Make it 50% shorter | Max 100 characters | Less urgent | For C-level audience | Turn into 5 bullet points...'));
 
   card.addSection(toneSection);
 
