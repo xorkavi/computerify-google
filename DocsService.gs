@@ -112,14 +112,22 @@ function getEntireDocParagraphs() {
 
 // ── Private helpers ──
 
-function captureTextStyle_(textEl) {
+function captureTextStyle_(textEl, offset) {
   var text = textEl.getText();
   if (!text || text.length === 0) return null;
-  var attrs = textEl.getAttributes(0);
-  if (attrs && attrs[DocumentApp.Attribute.LINK_URL] !== undefined) {
+  var pos = (offset !== undefined && offset < text.length) ? offset : 0;
+  var attrs = textEl.getAttributes(pos);
+  if (!attrs) return null;
+  if (attrs[DocumentApp.Attribute.LINK_URL] !== undefined) {
     delete attrs[DocumentApp.Attribute.LINK_URL];
   }
-  return attrs;
+  var cleaned = {};
+  for (var key in attrs) {
+    if (attrs[key] !== null) {
+      cleaned[key] = attrs[key];
+    }
+  }
+  return cleaned;
 }
 
 function applyTextStyle_(textEl, attrs) {
@@ -170,8 +178,17 @@ function replaceRange_(elements, newText) {
 
     if (first) {
       if (re.isPartial()) {
-        textEl.deleteText(re.getStartOffset(), re.getEndOffsetInclusive());
-        textEl.insertText(re.getStartOffset(), newText);
+        var startOff = re.getStartOffset();
+        var attrs = captureTextStyle_(textEl, startOff);
+        textEl.deleteText(startOff, re.getEndOffsetInclusive());
+        textEl.insertText(startOff, newText);
+        if (attrs && newText.length > 0) {
+          try {
+            textEl.setAttributes(startOff, startOff + newText.length - 1, attrs);
+          } catch (e) {
+            Logger.log('replaceRange_: style reapply failed: ' + e.message);
+          }
+        }
       } else {
         setTextPreserveStyle_(textEl, newText);
       }
