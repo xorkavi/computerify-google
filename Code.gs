@@ -284,9 +284,33 @@ function callAgentWithContext_(text, tone, instruction) {
     context += (TONE_PROMPTS[tone] || '') + '\n';
   }
   if (instruction) {
-    context += 'Additional instruction (follow this precisely, it overrides defaults): ' + instruction + '\n';
+    var wordCount = text.split(/\s+/).length;
+    var target = computeLengthTarget_(instruction, wordCount);
+    if (target) {
+      context += instruction + '. The input is ' + wordCount + ' words, so your output must be ~' + target + ' words.\n';
+    } else {
+      context += instruction + '\n';
+    }
   }
   return callAgent(text, context);
+}
+
+function computeLengthTarget_(instruction, wordCount) {
+  var lower = instruction.toLowerCase();
+  var percentMatch = lower.match(/(\d+)\s*%/);
+  if (percentMatch) {
+    var pct = parseInt(percentMatch[1], 10);
+    if (lower.indexOf('short') !== -1 || lower.indexOf('less') !== -1 || lower.indexOf('reduce') !== -1) {
+      return Math.round(wordCount * (1 - pct / 100));
+    }
+    if (lower.indexOf('long') !== -1 || lower.indexOf('more') !== -1 || lower.indexOf('increase') !== -1) {
+      return Math.round(wordCount * (1 + pct / 100));
+    }
+  }
+  if (lower.indexOf('double') !== -1) return wordCount * 2;
+  if (lower.indexOf('triple') !== -1) return wordCount * 3;
+  if (lower.indexOf('half') !== -1) return Math.round(wordCount / 2);
+  return null;
 }
 
 function fixCopyShapes_(shapes) {
