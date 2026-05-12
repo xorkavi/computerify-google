@@ -164,7 +164,9 @@ function cardFixCopy(e) {
       if (!sel.found) {
         return buildErrorCard_('No text selected.\n\nHighlight text in your document, then try again.');
       }
-      var r = callAgentWithContext_(sel.text, tone, instruction);
+      var annotated = getDocsAnnotatedSelection();
+      var textToSend = (annotated && annotated.hasFormatting) ? annotated.annotated : sel.text;
+      var r = callAgentWithContext_(textToSend, tone, instruction, annotated);
       replaceDocsSelection(r);
       count = 1;
     } else {
@@ -201,10 +203,12 @@ function cardFixAll(e) {
       }
       for (var i = 0; i < paras.length; i++) {
         if (!paras[i].text || paras[i].text.trim() === '') continue;
-        var rewritten = callAgentWithContext_(paras[i].text, tone, instruction);
-        if (paras[i].element && paras[i].element.editAsText) {
-          setTextPreserveStyle_(paras[i].element.editAsText(), rewritten);
-        }
+        var textEl = paras[i].element.editAsText ? paras[i].element.editAsText() : null;
+        if (!textEl) continue;
+        var annotated = getAnnotatedText_(textEl);
+        var textToSend = annotated.hasFormatting ? annotated.annotated : paras[i].text;
+        var rewritten = callAgentWithContext_(textToSend, tone, instruction, annotated);
+        smartReplace_(textEl, rewritten);
         count++;
       }
     } else if (editor === 'slides') {
@@ -278,7 +282,7 @@ function buildHomepageErrorCard_(message) {
 // SHARED HELPERS
 // =============================================
 
-function callAgentWithContext_(text, tone, instruction) {
+function callAgentWithContext_(text, tone, instruction, formattingInfo) {
   var context = '';
   if (tone && tone !== 'auto') {
     context += (TONE_PROMPTS[tone] || '') + '\n';
@@ -290,6 +294,12 @@ function callAgentWithContext_(text, tone, instruction) {
       context += instruction + '. The input is ' + wordCount + ' words, so your output must be ~' + target + ' words.\n';
     } else {
       context += instruction + '\n';
+    }
+  }
+  if (formattingInfo && formattingInfo.hasFormatting) {
+    context += '\nFORMATTING PRESERVATION: The input uses {N}...{/N} tags to mark specially formatted text. Each number represents a different visual style. You MUST preserve these tags in your output — apply them to the semantically equivalent words/phrases in your rewrite. Do not add or remove tags, do not change the numbers.\n';
+    if (formattingInfo.styleDesc) {
+      context += 'Style legend: ' + formattingInfo.styleDesc + '\nUse this to understand WHY text is formatted — then apply the same reasoning to your rewrite.\n';
     }
   }
   return callAgent(text, context);
